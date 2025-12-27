@@ -1,542 +1,734 @@
 """
-Student Dashboard
-Personal Learning Journey & Performance Tracking
+Faculty Dashboard - COMPLETE STANDALONE VERSION
+Academic Insights, Student Performance & Learning Analytics
 """
-
-import sys
-from pathlib import Path
-
-# Add parent directory to path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
+from google.cloud import bigquery
+from google.oauth2 import service_account
+import plotly.express as px
+import plotly.graph_objects as go
 
-# Direct imports from utils modules
-from utils.auth_handler import (
-    require_authentication, show_user_info_sidebar, get_current_user
-)
-from utils.chart_components import (
-    create_metric_cards, plot_radar_chart, plot_line_chart, plot_bar_chart,
-    plot_gauge, create_multi_line_chart
-)
-from utils.query_builder import QueryBuilder
-from config.database import get_cached_query, run_query, DATASET_ID
-from config.auth import can_access_page
+# Import auth functions directly
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+try:
+    from utils.auth_handler import require_authentication, show_user_info_sidebar, get_current_user
+    from config.auth import can_access_page
+except Exception:
+    st.error("Import error - please check file structure")
+    st.stop()
 
 # Page config
 st.set_page_config(
-    page_title="Student Dashboard | MIND Platform",
-    page_icon="🎓",
+    page_title="Faculty Dashboard | MIND Platform",
+    page_icon="👩‍🏫",
     layout="wide"
 )
 
-# Authentication check
+# Authentication
 require_authentication()
-
-# Check role permission
 user = get_current_user()
-if not can_access_page(user['role'], 'Student'):
-    st.error("⛔ Access Denied: Student privileges required")
+if not can_access_page(user['role'], 'Faculty'):
+    st.error("⛔ Access Denied: Faculty privileges required")
     st.stop()
-
-# Get student user_id from user data
-student_user_id = user.get('user_id', None)
 
 # Sidebar
 show_user_info_sidebar()
 
+# Display logo if available
+try:
+    from utils.logo_handler import display_logo
+    display_logo("sidebar", width=180)
+except Exception:
+    pass
+
+# Database connection
+@st.cache_resource
+def get_db_client():
+    """Get BigQuery client"""
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            st.secrets["gcp_service_account"]
+        )
+        return bigquery.Client(
+            credentials=credentials,
+            project=st.secrets["gcp_service_account"]["project_id"],
+            location="europe-west3"
+        )
+    except Exception as e:
+        st.error(f"Database connection failed: {str(e)}")
+        return None
+
+@st.cache_data(ttl=3600)
+def run_query(sql):
+    """Execute query with caching"""
+    client = get_db_client()
+    if client is None:
+        return None
+    try:
+        return client.query(sql).to_dataframe()
+    except Exception as e:
+        st.error(f"Query failed: {str(e)}")
+        return None
+
+# Constants
+DATASET_ID = "gen-lang-client-0625543859.mind_analytics"
+
+# Chart helper functions
+def plot_bar_chart(df, x, y, title, orientation='v', height=400):
+    fig = px.bar(df, x=x, y=y, title=title, template='plotly_dark', orientation=orientation, height=height)
+    fig.update_layout(plot_bgcolor='#262730', paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'))
+    return fig
+
+def plot_line_chart(df, x, y, title, height=400):
+    fig = px.line(df, x=x, y=y, title=title, template='plotly_dark', height=height)
+    fig.update_layout(plot_bgcolor='#262730', paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'), hovermode='x unified')
+    return fig
+
+def create_multi_line_chart(df, x, y_columns, title, height=400):
+    fig = go.Figure()
+    colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#3498DB']
+    for idx, col in enumerate(y_columns):
+        fig.add_trace(go.Scatter(x=df[x], y=df[col], name=col, mode='lines+markers', 
+                                line=dict(color=colors[idx % len(colors)])))
+    fig.update_layout(title=title, template='plotly_dark', plot_bgcolor='#262730', 
+                     paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'), 
+                     hovermode='x unified', height=height)
+    return fig
+
 # Header
-st.title("🎓 My Learning Journey")
-st.markdown(f"### Welcome, {user['name']}!")
+st.title("👩‍🏫 Faculty Dashboard")
+st.markdown("### Academic Insights & Learning Analytics")
 st.markdown("---")
 
-# Main content
+# Filters in sidebar
+with st.sidebar:
+    st.markdown("### 📊 Filters")
+    
+    # Department filter
+    dept_df = run_query(f"""
+        SELECT DISTINCT department 
+        FROM `{DATASET_ID}.user` 
+        WHERE department IS NOT NULL 
+        ORDER BY department
+    """)
+    departments = ['All'] + (dept_df['department'].tolist() if dept_df is not None and not dept_df.empty else [])
+    selected_dept = st.selectbox("Filter by Department", departments)
+    
+    # Risk threshold
+    st.markdown("---")
+    risk_threshold = st.slider("At-Risk Threshold (%)", 0, 100, 60, 
+                               help="Students below this score are flagged as at-risk")
+    
+    # Time range
+    st.markdown("---")
+    time_range = st.selectbox("Time Range", ["Last 7 Days", "Last 30 Days", "Last 90 Days", "All Time"], index=1)
+    
+    time_map = {
+        "Last 7 Days": 7,
+        "Last 30 Days": 30,
+        "Last 90 Days": 90,
+        "All Time": 36500
+    }
+    days = time_map[time_range]
+
+# Main content tabs
 tabs = st.tabs([
     "📊 Overview",
-    "🎯 Performance",
-    "📚 Case Studies",
-    "💬 Conversations",
-    "🏆 Achievements"
+    "👥 Student Performance",
+    "📚 Case Study Analytics",
+    "⚠️ At-Risk Students",
+    "📈 Progress Tracking",
+    "🎯 Individual Student"
 ])
 
 # TAB 1: OVERVIEW
 with tabs[0]:
-    st.markdown("## 📊 My Performance Overview")
+    st.markdown("## 📊 Academic Overview")
     
-    # Get student's performance
-    if student_user_id:
-        student_perf_df = get_cached_query(QueryBuilder.get_student_performance(student_user_id))
-    else:
-        # Demo mode - get first student
-        student_perf_df = get_cached_query(QueryBuilder.get_student_performance())
+    # Build department filter
+    dept_where = f"AND u.department = '{selected_dept}'" if selected_dept != 'All' else ""
     
-    # Get class averages
-    avg_grade_df = get_cached_query(QueryBuilder.get_average_grade())
+    # KPIs Row 1
+    col1, col2, col3, col4, col5 = st.columns(5)
     
-    if student_perf_df is not None and not student_perf_df.empty:
-        my_data = student_perf_df.iloc[0]
-        
-        # KPIs
-        col1, col2, col3, col4 = st.columns(4)
-        
-        with col1:
-            st.metric("My Average Score", f"{my_data['avg_score']:.1f}%")
-        with col2:
-            st.metric("Total Attempts", int(my_data['attempts']))
-        with col3:
-            if avg_grade_df is not None and not avg_grade_df.empty:
-                class_avg = avg_grade_df['avg_grade'].iloc[0]
-                delta = my_data['avg_score'] - class_avg
-                st.metric("vs Class Average", f"{delta:+.1f}%", delta=f"{delta:+.1f}%")
-            else:
-                st.metric("Cases Completed", "N/A")
-        with col4:
-            # Calculate percentile
-            all_students_df = get_cached_query(QueryBuilder.get_student_performance())
-            if all_students_df is not None and not all_students_df.empty:
-                percentile = (all_students_df['avg_score'] < my_data['avg_score']).sum() / len(all_students_df) * 100
-                st.metric("Percentile Rank", f"{percentile:.0f}%")
-            else:
-                st.metric("Percentile Rank", "N/A")
-        
-        st.markdown("---")
-        
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### 🎯 My Performance Radar")
-            
-            categories = ['Communication', 'Comprehension', 'Critical Thinking']
-            my_values = [
-                my_data['avg_communication'],
-                my_data['avg_comprehension'],
-                my_data['avg_critical_thinking']
-            ]
-            
-            # Class averages
-            if avg_grade_df is not None and not avg_grade_df.empty:
-                class_avg_values = [
-                    avg_grade_df['avg_communication'].iloc[0],
-                    avg_grade_df['avg_comprehension'].iloc[0],
-                    avg_grade_df['avg_critical_thinking'].iloc[0]
-                ]
-            else:
-                class_avg_values = None
-            
-            fig = plot_radar_chart(
-                categories, my_values, class_avg_values,
-                "My Performance vs Class Average",
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-        
-        with col2:
-            st.markdown("### 📊 Rubric Breakdown")
-            
-            # Individual rubric scores with gauges
-            st.markdown("#### Communication")
-            fig_comm = plot_gauge(my_data['avg_communication'], "Communication Score", height=200)
-            st.plotly_chart(fig_comm, use_container_width=True)
-            
-            st.markdown("#### Comprehension")
-            fig_comp = plot_gauge(my_data['avg_comprehension'], "Comprehension Score", height=200)
-            st.plotly_chart(fig_comp, use_container_width=True)
-            
-            st.markdown("#### Critical Thinking")
-            fig_crit = plot_gauge(my_data['avg_critical_thinking'], "Critical Thinking Score", height=200)
-            st.plotly_chart(fig_crit, use_container_width=True)
-        
-        st.markdown("---")
-        
-        # Strengths and areas for improvement
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("### 💪 My Strengths")
-            
-            scores = {
-                'Communication': my_data['avg_communication'],
-                'Comprehension': my_data['avg_comprehension'],
-                'Critical Thinking': my_data['avg_critical_thinking']
-            }
-            
-            sorted_scores = sorted(scores.items(), key=lambda x: x[1], reverse=True)
-            
-            for i, (category, score) in enumerate(sorted_scores, 1):
-                if i == 1:
-                    st.success(f"🥇 **{category}**: {score:.1f}%")
-                elif i == 2:
-                    st.info(f"🥈 **{category}**: {score:.1f}%")
-                else:
-                    st.warning(f"🥉 **{category}**: {score:.1f}%")
-        
-        with col2:
-            st.markdown("### 🎯 Areas for Improvement")
-            
-            # Compare with class averages
-            if avg_grade_df is not None and not avg_grade_df.empty:
-                improvements = []
-                
-                if my_data['avg_communication'] < class_avg_values[0]:
-                    gap = class_avg_values[0] - my_data['avg_communication']
-                    improvements.append(('Communication', gap))
-                
-                if my_data['avg_comprehension'] < class_avg_values[1]:
-                    gap = class_avg_values[1] - my_data['avg_comprehension']
-                    improvements.append(('Comprehension', gap))
-                
-                if my_data['avg_critical_thinking'] < class_avg_values[2]:
-                    gap = class_avg_values[2] - my_data['avg_critical_thinking']
-                    improvements.append(('Critical Thinking', gap))
-                
-                if improvements:
-                    improvements.sort(key=lambda x: x[1], reverse=True)
-                    for category, gap in improvements:
-                        st.warning(f"**{category}**: {gap:.1f}% below class average")
-                else:
-                    st.success("🎉 You're at or above class average in all categories!")
-            else:
-                st.info("No class comparison data available")
-    else:
-        st.info("No performance data available yet. Complete a case study to see your progress!")
-
-# TAB 2: PERFORMANCE
-with tabs[1]:
-    st.markdown("## 🎯 Detailed Performance Metrics")
-    
-    if student_perf_df is not None and not student_perf_df.empty:
-        my_data = student_perf_df.iloc[0]
-        
-        # Performance over time
-        st.markdown("### 📈 My Progress Over Time")
-        
-        progress_query = f"""
-        SELECT 
-            timestamp,
-            final_score,
-            communication,
-            comprehension,
-            critical_thinking,
-            attempt
-        FROM `{DATASET_ID}.grades`
-        WHERE user_id = '{student_user_id if student_user_id else my_data['student_email']}'
-            AND final_score IS NOT NULL
-        ORDER BY timestamp
-        """
-        
-        progress_df = get_cached_query(progress_query) if student_user_id else None
-        
-        if progress_df is not None and not progress_df.empty:
-            # Score progression
-            from utils import create_multi_line_chart
-            
-            fig = create_multi_line_chart(
-                progress_df, 'timestamp',
-                ['final_score', 'communication', 'comprehension', 'critical_thinking'],
-                'My Score Progression',
-                height=400
-            )
-            st.plotly_chart(fig, use_container_width=True)
-            
-            st.markdown("---")
-            
-            # Attempt history table
-            st.markdown("### 📋 My Attempt History")
-            st.dataframe(progress_df, use_container_width=True, height=300)
-            
-            # Statistics
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric("Best Score", f"{progress_df['final_score'].max():.1f}%")
-            with col2:
-                st.metric("Most Recent", f"{progress_df['final_score'].iloc[-1]:.1f}%")
-            with col3:
-                improvement = progress_df['final_score'].iloc[-1] - progress_df['final_score'].iloc[0]
-                st.metric("Improvement", f"{improvement:+.1f}%", delta=f"{improvement:+.1f}%")
-            with col4:
-                st.metric("Total Attempts", len(progress_df))
+    with col1:
+        df = run_query(f"""
+            SELECT COUNT(DISTINCT u.user_id) as count
+            FROM `{DATASET_ID}.user` u
+            JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user
+            WHERE 1=1 {dept_where}
+        """)
+        if df is not None and not df.empty:
+            st.metric("Total Students", f"{df['count'].iloc[0]:,}")
         else:
-            st.info("Complete more case studies to see your progress over time")
-    else:
-        st.info("No performance data available")
-
-# TAB 3: CASE STUDIES
-with tabs[2]:
-    st.markdown("## 📚 My Case Study Performance")
+            st.metric("Total Students", "N/A")
     
-    if student_user_id or (student_perf_df is not None and not student_perf_df.empty):
-        user_filter = student_user_id if student_user_id else student_perf_df.iloc[0]['student_email']
-        
-        my_cases_query = f"""
-        SELECT 
-            c.title as case_study,
-            COUNT(*) as attempts,
-            ROUND(AVG(g.final_score), 2) as avg_score,
-            ROUND(MAX(g.final_score), 2) as best_score,
-            MAX(g.timestamp) as last_attempt
-        FROM `{DATASET_ID}.grades` g
-        JOIN `{DATASET_ID}.casestudy` c ON g.case_study_id = c.case_study_id
-        WHERE g.user_id = '{user_filter}'
-            AND g.final_score IS NOT NULL
-        GROUP BY c.title
-        ORDER BY last_attempt DESC
-        """
-        
-        my_cases_df = get_cached_query(my_cases_query) if student_user_id else None
-        
-        if my_cases_df is not None and not my_cases_df.empty:
-            st.markdown("### 📊 My Case Study Summary")
-            st.dataframe(my_cases_df, use_container_width=True, height=300)
+    with col2:
+        df = run_query(f"""
+            SELECT COUNT(*) as count
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
+            {dept_where}
+        """)
+        if df is not None and not df.empty:
+            st.metric("Total Submissions", f"{df['count'].iloc[0]:,}")
+        else:
+            st.metric("Total Submissions", "N/A")
+    
+    with col3:
+        df = run_query(f"""
+            SELECT ROUND(AVG(g.final_score), 2) as avg_score
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.final_score IS NOT NULL {dept_where}
+        """)
+        if df is not None and not df.empty:
+            st.metric("Class Average", f"{df['avg_score'].iloc[0]:.1f}%")
+        else:
+            st.metric("Class Average", "N/A")
+    
+    with col4:
+        df = run_query(f"""
+            SELECT COUNT(DISTINCT u.user_id) as at_risk
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.final_score IS NOT NULL {dept_where}
+            GROUP BY u.user_id
+            HAVING AVG(g.final_score) < {risk_threshold}
+        """)
+        if df is not None and not df.empty:
+            st.metric("At-Risk Students", f"{df['at_risk'].sum():,}", 
+                     delta=f"< {risk_threshold}%", delta_color="inverse")
+        else:
+            st.metric("At-Risk Students", "0")
+    
+    with col5:
+        df = run_query(f"""
+            SELECT COUNT(DISTINCT c.case_study_id) as cases
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE 1=1 {dept_where}
+        """)
+        if df is not None and not df.empty:
+            st.metric("Active Case Studies", f"{df['cases'].iloc[0]}")
+        else:
+            st.metric("Active Case Studies", "N/A")
+    
+    st.markdown("---")
+    
+    # Charts Row 1
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📈 Grade Distribution")
+        df = run_query(f"""
+            SELECT 
+                CASE 
+                    WHEN final_score >= 90 THEN 'A (90-100)'
+                    WHEN final_score >= 80 THEN 'B (80-89)'
+                    WHEN final_score >= 70 THEN 'C (70-79)'
+                    WHEN final_score >= 60 THEN 'D (60-69)'
+                    ELSE 'F (<60)'
+                END as grade,
+                COUNT(*) as count
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.final_score IS NOT NULL {dept_where}
+            GROUP BY grade
+            ORDER BY grade
+        """)
+        if df is not None and not df.empty:
+            # Ensure all grades are present
+            all_grades = ['A (90-100)', 'B (80-89)', 'C (70-79)', 'D (60-69)', 'F (<60)']
+            for grade in all_grades:
+                if grade not in df['grade'].values:
+                    df = pd.concat([df, pd.DataFrame({'grade': [grade], 'count': [0]})], ignore_index=True)
             
-            st.markdown("---")
+            df = df.sort_values('grade')
             
-            col1, col2 = st.columns(2)
+            colors = ['#2ecc71', '#3498db', '#f39c12', '#e67e22', '#e74c3c']
+            fig = go.Figure(go.Bar(
+                x=df['count'],
+                y=df['grade'],
+                orientation='h',
+                marker=dict(color=colors),
+                text=df['count'],
+                textposition='outside'
+            ))
+            fig.update_layout(
+                title='Distribution of Final Scores',
+                xaxis_title='Number of Students',
+                yaxis_title='Grade Range',
+                template='plotly_dark',
+                plot_bgcolor='#262730',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                height=400
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No grade data available")
+    
+    with col2:
+        st.markdown("### 📊 Submission Activity")
+        df = run_query(f"""
+            SELECT 
+                DATE(g.timestamp) as date,
+                COUNT(*) as submissions,
+                ROUND(AVG(g.final_score), 2) as avg_score
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
+            {dept_where}
+            GROUP BY date
+            ORDER BY date
+        """)
+        if df is not None and not df.empty:
+            fig = go.Figure()
+            fig.add_trace(go.Bar(
+                x=df['date'],
+                y=df['submissions'],
+                name='Submissions',
+                marker=dict(color='#3498db')
+            ))
+            fig.add_trace(go.Scatter(
+                x=df['date'],
+                y=df['avg_score'],
+                name='Avg Score',
+                yaxis='y2',
+                mode='lines+markers',
+                line=dict(color='#2ecc71', width=3)
+            ))
+            fig.update_layout(
+                title='Daily Submissions & Average Scores',
+                xaxis_title='Date',
+                yaxis_title='Submissions',
+                yaxis2=dict(
+                    title='Average Score (%)',
+                    overlaying='y',
+                    side='right'
+                ),
+                template='plotly_dark',
+                plot_bgcolor='#262730',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                height=400,
+                hovermode='x unified'
+            )
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No submission data available")
+    
+    st.markdown("---")
+    
+    # Charts Row 2
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 🎯 Top Performing Students")
+        df = run_query(f"""
+            SELECT 
+                u.name as student_name,
+                u.department,
+                ROUND(AVG(g.final_score), 2) as avg_score,
+                COUNT(g._id) as attempts
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.final_score IS NOT NULL {dept_where}
+            GROUP BY u.user_id, u.name, u.department
+            ORDER BY avg_score DESC
+            LIMIT 10
+        """)
+        if df is not None and not df.empty:
+            st.dataframe(df, use_container_width=True, height=350)
             
-            with col1:
-                st.markdown("### 🎯 Average Scores")
-                fig = plot_bar_chart(my_cases_df, 'case_study', 'avg_score',
-                                   'My Average by Case Study',
-                                   orientation='h', height=400)
-                st.plotly_chart(fig, use_container_width=True)
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download CSV", csv, "top_performers.csv", "text/csv")
+        else:
+            st.info("No student data available")
+    
+    with col2:
+        st.markdown("### 📚 Case Study Performance")
+        df = run_query(f"""
+            SELECT 
+                c.title as case_study,
+                COUNT(g._id) as attempts,
+                ROUND(AVG(g.final_score), 2) as avg_score,
+                ROUND(MIN(g.final_score), 2) as min_score,
+                ROUND(MAX(g.final_score), 2) as max_score
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.final_score IS NOT NULL {dept_where}
+            GROUP BY c.case_study_id, c.title
+            ORDER BY avg_score DESC
+        """)
+        if df is not None and not df.empty:
+            st.dataframe(df, use_container_width=True, height=350)
             
-            with col2:
-                st.markdown("### 🏆 Best Scores")
-                fig = plot_bar_chart(my_cases_df, 'case_study', 'best_score',
-                                   'My Best Score by Case Study',
-                                   orientation='h', height=400)
-                st.plotly_chart(fig, use_container_width=True)
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download CSV", csv, "case_study_performance.csv", "text/csv")
         else:
             st.info("No case study data available")
-        
-        # Available case studies
-        st.markdown("---")
-        st.markdown("### 📖 Available Case Studies")
-        
-        all_cases_query = f"""
+
+# TAB 2: STUDENT PERFORMANCE
+with tabs[1]:
+    st.markdown("## 👥 Student Performance Analytics")
+    
+    # Search and filters
+    col1, col2 = st.columns(2)
+    with col1:
+        search_student = st.text_input("🔍 Search by Student Name", "")
+    with col2:
+        sort_by = st.selectbox("Sort By", ["Average Score (High to Low)", "Average Score (Low to High)", 
+                                           "Total Attempts", "Name (A-Z)"])
+    
+    # Build sort clause
+    sort_map = {
+        "Average Score (High to Low)": "avg_score DESC",
+        "Average Score (Low to High)": "avg_score ASC",
+        "Total Attempts": "attempts DESC",
+        "Name (A-Z)": "u.name ASC"
+    }
+    sort_clause = sort_map[sort_by]
+    
+    # Build search filter
+    search_where = f"AND LOWER(u.name) LIKE '%{search_student.lower()}%'" if search_student else ""
+    
+    df = run_query(f"""
         SELECT 
-            title,
-            description
-        FROM `{DATASET_ID}.casestudy`
-        ORDER BY title
-        """
+            u.name as student_name,
+            u.department,
+            u.role,
+            COUNT(g._id) as attempts,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            ROUND(MIN(g.final_score), 2) as min_score,
+            ROUND(MAX(g.final_score), 2) as max_score,
+            MAX(g.timestamp) as last_activity
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+        WHERE g.final_score IS NOT NULL {dept_where} {search_where}
+        GROUP BY u.user_id, u.name, u.department, u.role
+        ORDER BY {sort_clause}
+    """)
+    
+    if df is not None and not df.empty:
+        # Color-code by performance
+        def highlight_performance(row):
+            if row['avg_score'] >= 80:
+                return ['background-color: rgba(46, 204, 113, 0.2)'] * len(row)
+            elif row['avg_score'] < risk_threshold:
+                return ['background-color: rgba(231, 76, 60, 0.2)'] * len(row)
+            return [''] * len(row)
         
-        all_cases_df = get_cached_query(all_cases_query)
+        st.dataframe(df, use_container_width=True, height=500)
         
-        if all_cases_df is not None and not all_cases_df.empty:
-            for idx, case in all_cases_df.iterrows():
-                with st.expander(f"📘 {case['title']}"):
-                    st.markdown(case['description'] if case['description'] else "No description available")
-                    
-                    # Check if student has attempted
-                    if my_cases_df is not None and case['title'] in my_cases_df['case_study'].values:
-                        case_data = my_cases_df[my_cases_df['case_study'] == case['title']].iloc[0]
-                        st.success(f"✅ Completed {case_data['attempts']} times | Best: {case_data['best_score']:.1f}%")
-                    else:
-                        st.info("📝 Not yet attempted")
+        col1, col2, col3 = st.columns(3)
+        with col1:
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download CSV", csv, "student_performance.csv", "text/csv")
+        with col2:
+            st.metric("Total Students", len(df))
+        with col3:
+            at_risk = len(df[df['avg_score'] < risk_threshold])
+            st.metric("At-Risk in This View", at_risk)
+    else:
+        st.info("No student performance data available")
+
+# TAB 3: CASE STUDY ANALYTICS
+with tabs[2]:
+    st.markdown("## 📚 Case Study Analytics")
+    
+    # Detailed case study performance
+    df = run_query(f"""
+        SELECT 
+            c.title as case_study,
+            COUNT(DISTINCT g.user) as unique_students,
+            COUNT(g._id) as total_attempts,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            ROUND(MIN(CASE WHEN g.final_score > 0 THEN g.final_score END), 2) as min_nonzero,
+            ROUND(MAX(g.final_score), 2) as max_score,
+            ROUND(STDDEV(g.final_score), 2) as std_dev
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
+        JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+        WHERE g.final_score IS NOT NULL {dept_where}
+        GROUP BY c.case_study_id, c.title
+        ORDER BY avg_score DESC
+    """)
+    
+    if df is not None and not df.empty:
+        st.dataframe(df, use_container_width=True, height=400)
+        
+        csv = df.to_csv(index=False).encode('utf-8')
+        st.download_button("📥 Download Detailed Report", csv, "case_study_analytics.csv", "text/csv")
+        
+        st.markdown("---")
+        
+        # Score ranges visualization
+        st.markdown("### 📊 Score Ranges by Case Study")
+        
+        fig = go.Figure()
+        
+        fig.add_trace(go.Bar(
+            name='Min (Non-Zero)',
+            x=df['min_nonzero'],
+            y=df['case_study'],
+            orientation='h',
+            marker=dict(color='#e67e22'),
+            text=df['min_nonzero'].apply(lambda x: f"{x:.1f}%" if pd.notna(x) else "N/A"),
+            textposition='outside'
+        ))
+        
+        fig.add_trace(go.Bar(
+            name='Average',
+            x=df['avg_score'],
+            y=df['case_study'],
+            orientation='h',
+            marker=dict(color='#3498db'),
+            text=df['avg_score'].apply(lambda x: f"{x:.1f}%"),
+            textposition='outside'
+        ))
+        
+        fig.add_trace(go.Bar(
+            name='Maximum',
+            x=df['max_score'],
+            y=df['case_study'],
+            orientation='h',
+            marker=dict(color='#2ecc71'),
+            text=df['max_score'].apply(lambda x: f"{x:.1f}%"),
+            textposition='outside'
+        ))
+        
+        fig.update_layout(
+            title='Case Study Score Ranges',
+            xaxis_title='Score (%)',
+            yaxis_title='Case Study',
+            barmode='group',
+            template='plotly_dark',
+            plot_bgcolor='#262730',
+            paper_bgcolor='#0E1117',
+            font=dict(color='#FAFAFA'),
+            height=max(400, len(df) * 50),
+            yaxis={'categoryorder': 'total ascending'}
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No case study data available")
 
-# TAB 4: CONVERSATIONS
+# TAB 4: AT-RISK STUDENTS
 with tabs[3]:
-    st.markdown("## 💬 My Conversation History")
+    st.markdown("## ⚠️ At-Risk Students")
+    st.markdown(f"**Threshold:** Students with average scores below {risk_threshold}%")
     
-    if student_user_id or (student_perf_df is not None and not student_perf_df.empty):
-        user_filter = student_user_id if student_user_id else student_perf_df.iloc[0]['student_email']
-        
-        conversations_query = f"""
+    df = run_query(f"""
         SELECT 
-            conv.conversation_id,
-            conv.timestamp,
-            c.title as case_study,
-            conv.session_attempt,
-            g.final_score,
-            g.performance_summary
-        FROM `{DATASET_ID}.conversation` conv
-        JOIN `{DATASET_ID}.casestudy` c ON conv.case_study_id = c.case_study_id
-        LEFT JOIN `{DATASET_ID}.grades` g ON conv.conversation_id = g.conversation_id
-        WHERE conv.user_id = '{user_filter}'
-        ORDER BY conv.timestamp DESC
-        LIMIT 50
-        """
+            u.name as student_name,
+            u.department,
+            COUNT(g._id) as attempts,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            ROUND(MIN(g.final_score), 2) as lowest_score,
+            MAX(g.timestamp) as last_activity,
+            DATE_DIFF(CURRENT_DATE(), DATE(MAX(g.timestamp)), DAY) as days_since_last
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+        WHERE g.final_score IS NOT NULL {dept_where}
+        GROUP BY u.user_id, u.name, u.department
+        HAVING avg_score < {risk_threshold}
+        ORDER BY avg_score ASC
+    """)
+    
+    if df is not None and not df.empty:
+        st.warning(f"**{len(df)} students** need intervention")
         
-        conversations_df = get_cached_query(conversations_query) if student_user_id else None
+        st.dataframe(df, use_container_width=True, height=500)
         
-        if conversations_df is not None and not conversations_df.empty:
-            st.markdown(f"### 📝 Recent Conversations ({len(conversations_df)} total)")
+        col1, col2 = st.columns(2)
+        with col1:
+            csv = df.to_csv(index=False).encode('utf-8')
+            st.download_button("📥 Download At-Risk Report", csv, "at_risk_students.csv", "text/csv")
+        
+        with col2:
+            inactive = len(df[df['days_since_last'] > 7])
+            st.metric("Inactive (7+ days)", inactive, delta="Needs follow-up", delta_color="inverse")
+    else:
+        st.success(f"✅ No students below {risk_threshold}% threshold!")
+
+# TAB 5: PROGRESS TRACKING
+with tabs[4]:
+    st.markdown("## 📈 Learning Progress Tracking")
+    
+    # Weekly progress
+    st.markdown("### 📅 Weekly Performance Trends")
+    df = run_query(f"""
+        SELECT 
+            DATE_TRUNC(g.timestamp, WEEK) as week,
+            COUNT(DISTINCT g.user) as active_students,
+            COUNT(g._id) as total_submissions,
+            ROUND(AVG(g.final_score), 2) as avg_score
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+        WHERE g.timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 DAY)
+        {dept_where}
+        GROUP BY week
+        ORDER BY week
+    """)
+    
+    if df is not None and not df.empty:
+        fig = create_multi_line_chart(
+            df, 'week',
+            ['active_students', 'total_submissions', 'avg_score'],
+            'Weekly Learning Metrics',
+            height=400
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No progress data available")
+    
+    st.markdown("---")
+    
+    # Department comparison (if viewing all)
+    if selected_dept == 'All':
+        st.markdown("### 🏢 Department Comparison")
+        df = run_query(f"""
+            SELECT 
+                u.department,
+                COUNT(DISTINCT u.user_id) as students,
+                COUNT(g._id) as submissions,
+                ROUND(AVG(g.final_score), 2) as avg_score
+            FROM `{DATASET_ID}.grades` g
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
+            WHERE g.final_score IS NOT NULL
+            GROUP BY u.department
+            ORDER BY avg_score DESC
+        """)
+        
+        if df is not None and not df.empty:
+            fig = plot_bar_chart(df, 'department', 'avg_score', 
+                               'Average Score by Department', height=400)
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No department data available")
+
+# TAB 6: INDIVIDUAL STUDENT
+with tabs[5]:
+    st.markdown("## 🎯 Individual Student Lookup")
+    
+    # Get list of students
+    students_df = run_query(f"""
+        SELECT DISTINCT u.name, u.user_id
+        FROM `{DATASET_ID}.user` u
+        JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user
+        WHERE 1=1 {dept_where}
+        ORDER BY u.name
+    """)
+    
+    if students_df is not None and not students_df.empty:
+        student_names = students_df['name'].tolist()
+        selected_student = st.selectbox("Select Student", student_names)
+        
+        if selected_student:
+            student_id = students_df[students_df['name'] == selected_student]['user_id'].iloc[0]
             
-            # Filter by case study
-            case_filter = st.selectbox(
-                "Filter by case study",
-                ['All'] + conversations_df['case_study'].unique().tolist()
-            )
+            # Student overview
+            col1, col2, col3, col4 = st.columns(4)
             
-            filtered_conv = conversations_df if case_filter == 'All' else conversations_df[conversations_df['case_study'] == case_filter]
+            df = run_query(f"""
+                SELECT 
+                    COUNT(g._id) as attempts,
+                    ROUND(AVG(g.final_score), 2) as avg_score,
+                    ROUND(MIN(g.final_score), 2) as min_score,
+                    ROUND(MAX(g.final_score), 2) as max_score
+                FROM `{DATASET_ID}.grades` g
+                WHERE g.user = '{student_id}' AND g.final_score IS NOT NULL
+            """)
             
-            # Display conversations
-            for idx, conv in filtered_conv.iterrows():
-                with st.expander(f"📅 {conv['timestamp'].strftime('%Y-%m-%d %H:%M')} - {conv['case_study']} (Attempt {conv['session_attempt']})"):
-                    col1, col2 = st.columns([3, 1])
-                    
-                    with col1:
-                        if pd.notna(conv['performance_summary']):
-                            st.markdown("**Performance Summary:**")
-                            st.info(conv['performance_summary'])
-                        else:
-                            st.info("No performance summary available")
-                    
-                    with col2:
-                        if pd.notna(conv['final_score']):
-                            st.metric("Score", f"{conv['final_score']:.1f}%")
-                        else:
-                            st.metric("Score", "Not graded")
-                    
-                    # View full transcript button
-                    if st.button(f"📖 View Transcript", key=f"transcript_{conv['conversation_id']}"):
-                        st.session_state.selected_conversation = conv['conversation_id']
+            if df is not None and not df.empty:
+                with col1:
+                    st.metric("Total Attempts", df['attempts'].iloc[0])
+                with col2:
+                    st.metric("Average Score", f"{df['avg_score'].iloc[0]:.1f}%")
+                with col3:
+                    st.metric("Lowest Score", f"{df['min_score'].iloc[0]:.1f}%")
+                with col4:
+                    st.metric("Highest Score", f"{df['max_score'].iloc[0]:.1f}%")
             
-            # Show selected transcript
-            if 'selected_conversation' in st.session_state:
-                st.markdown("---")
-                st.markdown("### 📖 Full Transcript")
+            st.markdown("---")
+            
+            # Performance over time
+            st.markdown("### 📈 Score Progression")
+            df = run_query(f"""
+                SELECT 
+                    g.timestamp,
+                    c.title as case_study,
+                    g.final_score
+                FROM `{DATASET_ID}.grades` g
+                JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
+                WHERE g.user = '{student_id}' AND g.final_score IS NOT NULL
+                ORDER BY g.timestamp
+            """)
+            
+            if df is not None and not df.empty:
+                fig = go.Figure()
+                fig.add_trace(go.Scatter(
+                    x=df['timestamp'],
+                    y=df['final_score'],
+                    mode='lines+markers',
+                    name='Score',
+                    line=dict(color='#3498db', width=2),
+                    marker=dict(size=10),
+                    text=df['case_study'],
+                    hovertemplate='<b>%{text}</b><br>Score: %{y:.1f}%<br>Date: %{x}<extra></extra>'
+                ))
                 
-                transcript_df = get_cached_query(
-                    QueryBuilder.get_conversation_transcript(st.session_state.selected_conversation)
+                # Add trend line
+                from scipy import stats
+                x_numeric = list(range(len(df)))
+                slope, intercept, r_value, p_value, std_err = stats.linregress(x_numeric, df['final_score'])
+                trend_line = [slope * x + intercept for x in x_numeric]
+                
+                fig.add_trace(go.Scatter(
+                    x=df['timestamp'],
+                    y=trend_line,
+                    mode='lines',
+                    name='Trend',
+                    line=dict(color='#2ecc71', width=2, dash='dash')
+                ))
+                
+                fig.update_layout(
+                    title=f'{selected_student} - Score Progression',
+                    xaxis_title='Date',
+                    yaxis_title='Score (%)',
+                    template='plotly_dark',
+                    plot_bgcolor='#262730',
+                    paper_bgcolor='#0E1117',
+                    font=dict(color='#FAFAFA'),
+                    height=400,
+                    hovermode='x unified'
                 )
                 
-                if transcript_df is not None and not transcript_df.empty:
-                    transcript_data = transcript_df.iloc[0]
-                    
-                    st.markdown(f"**Conversation ID:** `{transcript_data['conversation_id']}`")
-                    st.markdown(f"**Timestamp:** {transcript_data['timestamp']}")
-                    
-                    if pd.notna(transcript_data['transcript']):
-                        st.text_area("Transcript", transcript_data['transcript'], height=400)
-                    else:
-                        st.info("No transcript available")
-                    
-                    # Grades
-                    if pd.notna(transcript_data['final_score']):
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            st.metric("Final Score", f"{transcript_data['final_score']:.1f}%")
-                        with col2:
-                            st.metric("Communication", f"{transcript_data['communication']:.1f}%")
-                        with col3:
-                            st.metric("Comprehension", f"{transcript_data['comprehension']:.1f}%")
-                        with col4:
-                            st.metric("Critical Thinking", f"{transcript_data['critical_thinking']:.1f}%")
-        else:
-            st.info("No conversations yet. Start a case study to begin!")
+                st.plotly_chart(fig, use_container_width=True)
+                
+                # Detailed history
+                st.markdown("### 📋 Detailed Submission History")
+                st.dataframe(df, use_container_width=True, height=300)
+                
+                csv = df.to_csv(index=False).encode('utf-8')
+                st.download_button("📥 Download History", csv, f"{selected_student}_history.csv", "text/csv")
+            else:
+                st.info("No submission history for this student")
     else:
-        st.info("No conversation data available")
-
-# TAB 5: ACHIEVEMENTS
-with tabs[4]:
-    st.markdown("## 🏆 My Achievements & Milestones")
-    
-    if student_perf_df is not None and not student_perf_df.empty:
-        my_data = student_perf_df.iloc[0]
-        
-        # Calculate achievements
-        achievements = []
-        
-        # Score-based achievements
-        if my_data['avg_score'] >= 90:
-            achievements.append({
-                'icon': '🌟',
-                'title': 'Excellence',
-                'description': 'Maintained 90%+ average',
-                'level': 'gold'
-            })
-        elif my_data['avg_score'] >= 80:
-            achievements.append({
-                'icon': '⭐',
-                'title': 'High Achiever',
-                'description': 'Maintained 80%+ average',
-                'level': 'silver'
-            })
-        
-        # Attempt-based achievements
-        if my_data['attempts'] >= 10:
-            achievements.append({
-                'icon': '🎓',
-                'title': 'Dedicated Learner',
-                'description': 'Completed 10+ attempts',
-                'level': 'gold'
-            })
-        elif my_data['attempts'] >= 5:
-            achievements.append({
-                'icon': '📚',
-                'title': 'Active Student',
-                'description': 'Completed 5+ attempts',
-                'level': 'silver'
-            })
-        
-        # Rubric-based achievements
-        if my_data['avg_communication'] >= 90:
-            achievements.append({
-                'icon': '💬',
-                'title': 'Communication Master',
-                'description': '90%+ in Communication',
-                'level': 'gold'
-            })
-        
-        if my_data['avg_critical_thinking'] >= 90:
-            achievements.append({
-                'icon': '🧠',
-                'title': 'Critical Thinker',
-                'description': '90%+ in Critical Thinking',
-                'level': 'gold'
-            })
-        
-        # Display achievements
-        if achievements:
-            st.markdown("### 🎉 Unlocked Achievements")
-            
-            cols = st.columns(3)
-            for idx, achievement in enumerate(achievements):
-                with cols[idx % 3]:
-                    if achievement['level'] == 'gold':
-                        st.success(f"{achievement['icon']} **{achievement['title']}**\n\n{achievement['description']}")
-                    else:
-                        st.info(f"{achievement['icon']} **{achievement['title']}**\n\n{achievement['description']}")
-        else:
-            st.info("Keep learning to unlock achievements!")
-        
-        st.markdown("---")
-        
-        # Milestones
-        st.markdown("### 🎯 Next Milestones")
-        
-        milestones = []
-        
-        if my_data['avg_score'] < 90:
-            gap = 90 - my_data['avg_score']
-            milestones.append(f"📈 {gap:.1f}% away from Excellence (90%+ average)")
-        
-        if my_data['attempts'] < 10:
-            gap = 10 - my_data['attempts']
-            milestones.append(f"📚 {gap} more attempts to become a Dedicated Learner")
-        
-        if my_data['avg_communication'] < 90:
-            gap = 90 - my_data['avg_communication']
-            milestones.append(f"💬 {gap:.1f}% away from Communication Master")
-        
-        if my_data['avg_critical_thinking'] < 90:
-            gap = 90 - my_data['avg_critical_thinking']
-            milestones.append(f"🧠 {gap:.1f}% away from Critical Thinker")
-        
-        if milestones:
-            for milestone in milestones:
-                st.info(milestone)
-        else:
-            st.success("🎉 You've achieved all current milestones! Keep up the excellent work!")
-    else:
-        st.info("Complete case studies to unlock achievements!")
+        st.info("No students found")
 
 # Footer
 st.markdown("---")
-st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Student Dashboard v1.0")
+st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Faculty Dashboard v1.0")
