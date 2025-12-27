@@ -277,70 +277,68 @@ with tabs[0]:
             st.info("No grade data available")
     
     # Charts row 2
-    col1, col2 = st.columns(2)
+    st.markdown("### 🎯 Case Study Engagement: Total Completions")
+    df = run_query(f"""
+        SELECT 
+            c.title as case_study,
+            COUNT(g._id) as completions
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
+        GROUP BY c.title
+        ORDER BY completions DESC
+    """)
+    if df is not None and not df.empty:
+        # Horizontal bar chart with data labels
+        fig = go.Figure(go.Bar(
+            x=df['completions'],
+            y=df['case_study'],
+            orientation='h',
+            marker=dict(
+                color=df['completions'],
+                colorscale='Tealgrn',
+                showscale=False
+            ),
+            text=df['completions'],
+            textposition='outside',
+            textfont=dict(size=12, color='white')
+        ))
+        
+        fig.update_layout(
+            title='Case Study Engagement: Total Completions',
+            xaxis_title='Number of Graded Attempts',
+            yaxis_title='Case Study Title',
+            template='plotly_dark',
+            plot_bgcolor='#262730',
+            paper_bgcolor='#0E1117',
+            font=dict(color='#FAFAFA'),
+            height=400,
+            yaxis={'categoryorder': 'total ascending'}  # Sort by value
+        )
+        
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No case study data available")
     
-    with col1:
-        st.markdown("### 🎯 Case Study Engagement: Total Completions")
-        # Matching the notebook query - showing total completions (engagement volume)
-        df = run_query(f"""
-            SELECT 
-                c.title as case_study,
-                COUNT(g._id) as completions
-            FROM `{DATASET_ID}.grades` g
-            JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
-            GROUP BY c.title
-            ORDER BY completions DESC
-        """)
-        if df is not None and not df.empty:
-            # Horizontal bar chart with data labels
-            fig = go.Figure(go.Bar(
-                x=df['completions'],
-                y=df['case_study'],
-                orientation='h',
-                marker=dict(
-                    color=df['completions'],
-                    colorscale='Tealgrn',
-                    showscale=False
-                ),
-                text=df['completions'],
-                textposition='outside',
-                textfont=dict(size=12, color='white')
-            ))
-            
-            fig.update_layout(
-                title='Case Study Engagement: Total Completions',
-                xaxis_title='Number of Graded Attempts',
-                yaxis_title='Case Study Title',
-                template='plotly_dark',
-                plot_bgcolor='#262730',
-                paper_bgcolor='#0E1117',
-                font=dict(color='#FAFAFA'),
-                height=400,
-                yaxis={'categoryorder': 'total ascending'}  # Sort by value
-            )
-            
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No case study data available")
+    st.markdown("---")
     
-    with col2:
-        st.markdown("### 📱 Session Engagement")
-        df = run_query(f"""
-            SELECT 
-                DATE(start_timestamp) as date,
-                ROUND(AVG(session_duration_seconds / 60.0), 2) as avg_duration_minutes,
-                ROUND(AVG(pageview_count), 2) as avg_pageviews
-            FROM `{DATASET_ID}.session_analytics`
-            WHERE start_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
-            GROUP BY date
-            ORDER BY date
-        """)
-        if df is not None and not df.empty:
-            fig = create_multi_line_chart(df, 'date', ['avg_duration_minutes', 'avg_pageviews'], 
-                                         'Session Engagement Metrics', height=400)
-            st.plotly_chart(fig, use_container_width=True)
-        else:
-            st.info("No engagement data available")
+    # Charts row 3 - Session Engagement (full width)
+    st.markdown("### 📱 Session Engagement")
+    df = run_query(f"""
+        SELECT 
+            DATE(start_timestamp) as date,
+            ROUND(AVG(session_duration_seconds / 60.0), 2) as avg_duration_minutes,
+            ROUND(AVG(pageview_count), 2) as avg_pageviews
+        FROM `{DATASET_ID}.session_analytics`
+        WHERE start_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+        GROUP BY date
+        ORDER BY date
+    """)
+    if df is not None and not df.empty:
+        fig = create_multi_line_chart(df, 'date', ['avg_duration_minutes', 'avg_pageviews'], 
+                                     'Session Engagement Metrics', height=400)
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No engagement data available")
     
     # Charts row 3 - NEW CHARTS FROM NOTEBOOK
     st.markdown("---")
