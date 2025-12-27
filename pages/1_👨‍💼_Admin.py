@@ -280,21 +280,45 @@ with tabs[0]:
     col1, col2 = st.columns(2)
     
     with col1:
-        st.markdown("### 🎯 Case Study Performance")
-        # FIXED: grades table has 'case_study' column (not case_study_id)
+        st.markdown("### 🎯 Case Study Engagement: Total Completions")
+        # Matching the notebook query - showing total completions (engagement volume)
         df = run_query(f"""
             SELECT 
                 c.title as case_study,
-                ROUND(AVG(g.final_score), 2) as avg_score,
-                COUNT(DISTINCT g.user) as students
+                COUNT(g._id) as completions
             FROM `{DATASET_ID}.grades` g
             JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
-            WHERE g.final_score IS NOT NULL
             GROUP BY c.title
-            ORDER BY avg_score DESC
+            ORDER BY completions DESC
         """)
         if df is not None and not df.empty:
-            fig = plot_bar_chart(df, 'case_study', 'avg_score', 'Average Score by Case Study', orientation='h', height=400)
+            # Horizontal bar chart with data labels
+            fig = go.Figure(go.Bar(
+                x=df['completions'],
+                y=df['case_study'],
+                orientation='h',
+                marker=dict(
+                    color=df['completions'],
+                    colorscale='Tealgrn',
+                    showscale=False
+                ),
+                text=df['completions'],
+                textposition='outside',
+                textfont=dict(size=12, color='white')
+            ))
+            
+            fig.update_layout(
+                title='Case Study Engagement: Total Completions',
+                xaxis_title='Number of Graded Attempts',
+                yaxis_title='Case Study Title',
+                template='plotly_dark',
+                plot_bgcolor='#262730',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                height=400,
+                yaxis={'categoryorder': 'total ascending'}  # Sort by value
+            )
+            
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No case study data available")
