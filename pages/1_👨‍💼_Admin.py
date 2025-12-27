@@ -1,5 +1,5 @@
 """
-Admin Dashboard - COMPLETE STANDALONE VERSION
+Admin Dashboard - FIXED FOR BIGQUERY
 System Health, User Management & Governance Analytics
 """
 
@@ -178,7 +178,7 @@ with tabs[0]:
     
     col1, col2, col3, col4, col5 = st.columns(5)
     
-    # Get metrics
+    # Get metrics - Using correct table: "user" not "users"
     with col1:
         df = run_query(f"SELECT COUNT(DISTINCT user_id) as count FROM `{DATASET_ID}.user`")
         if df is not None and not df.empty:
@@ -187,8 +187,9 @@ with tabs[0]:
             st.metric("Total Users", "N/A")
     
     with col2:
+        # Note: sessions table might use 'user_email' instead of 'user_id'
         df = run_query(f"""
-            SELECT COUNT(DISTINCT user_id) as count 
+            SELECT COUNT(DISTINCT user_email) as count 
             FROM `{DATASET_ID}.sessions`
             WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
         """)
@@ -239,7 +240,7 @@ with tabs[0]:
         df = run_query(f"""
             SELECT 
                 DATE(start_time) as date,
-                COUNT(DISTINCT user_id) as active_users
+                COUNT(DISTINCT user_email) as active_users
             FROM `{DATASET_ID}.sessions`
             WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
             GROUP BY date
@@ -279,11 +280,12 @@ with tabs[0]:
     
     with col1:
         st.markdown("### 🎯 Case Study Performance")
+        # FIXED: grades table uses 'user' column, not 'user_id'
         df = run_query(f"""
             SELECT 
                 c.title as case_study,
                 ROUND(AVG(g.final_score), 2) as avg_score,
-                COUNT(DISTINCT g.user_id) as students
+                COUNT(DISTINCT g.user) as students
             FROM `{DATASET_ID}.grades` g
             JOIN `{DATASET_ID}.casestudy` c ON g.case_study_id = c.case_study_id
             WHERE g.final_score IS NOT NULL
@@ -323,6 +325,7 @@ with tabs[1]:
     
     with col1:
         st.markdown("### 📊 Performance by Cohort")
+        # FIXED: Join properly using 'user' column from grades
         df = run_query(f"""
             SELECT 
                 u.cohort,
@@ -330,7 +333,7 @@ with tabs[1]:
                 ROUND(AVG(g.final_score), 2) as avg_score,
                 ROUND(AVG(g.communication), 2) as avg_communication
             FROM `{DATASET_ID}.user` u
-            LEFT JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user_id
+            LEFT JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user
             WHERE u.cohort IS NOT NULL
             GROUP BY u.cohort
             ORDER BY u.cohort
@@ -351,7 +354,7 @@ with tabs[1]:
                 ROUND(AVG(g.final_score), 2) as avg_score,
                 ROUND(AVG(g.comprehension), 2) as avg_comprehension
             FROM `{DATASET_ID}.user` u
-            LEFT JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user_id
+            LEFT JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user
             WHERE u.department IS NOT NULL
             GROUP BY u.department
             ORDER BY u.department
@@ -378,7 +381,7 @@ with tabs[1]:
             ROUND(AVG(g.comprehension), 2) as avg_comprehension,
             ROUND(AVG(g.critical_thinking), 2) as avg_critical_thinking
         FROM `{DATASET_ID}.grades` g
-        JOIN `{DATASET_ID}.user` u ON g.user_id = u.user_id
+        JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
         WHERE g.final_score IS NOT NULL
         GROUP BY u.name, u.student_email, u.department, u.cohort
         ORDER BY avg_score DESC
@@ -443,7 +446,7 @@ with tabs[2]:
                 ROUND(AVG(g.final_score), 2) as avg_score,
                 COUNT(*) as attempts
             FROM `{DATASET_ID}.grades` g
-            JOIN `{DATASET_ID}.user` u ON g.user_id = u.user_id
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
             WHERE g.final_score IS NOT NULL
             GROUP BY u.user_id, u.name, u.student_email, u.department, u.cohort
             HAVING avg_score < 60
@@ -466,7 +469,7 @@ with tabs[2]:
                 ROUND(AVG(g.final_score), 2) as avg_score,
                 COUNT(*) as attempts
             FROM `{DATASET_ID}.grades` g
-            JOIN `{DATASET_ID}.user` u ON g.user_id = u.user_id
+            JOIN `{DATASET_ID}.user` u ON g.user = u.user_id
             WHERE g.final_score IS NOT NULL
             GROUP BY u.user_id, u.name, u.student_email
             ORDER BY avg_score DESC
@@ -495,19 +498,28 @@ with tabs[3]:
     
     col1, col2, col3, col4 = st.columns(4)
     
-    if df is not None and not df.empty and df['total_tokens'].iloc[0]:
-        total = df['total_tokens'].iloc[0]
+    # FIXED: Check for None/NaN values properly
+    if df is not None and not df.empty and pd.notna(df['total_tokens'].iloc[0]):
+        total = float(df['total_tokens'].iloc[0])
         cost = (total / 1_000_000) * 15.0
         
         with col1:
             st.metric("Total Tokens", f"{total:,.0f}")
         with col2:
-            st.metric("Input Tokens", f"{df['input_tokens'].iloc[0]:,.0f}")
+            st.metric("Input Tokens", f"{float(df['input_tokens'].iloc[0]):,.0f}")
         with col3:
-            st.metric("Output Tokens", f"{df['output_tokens'].iloc[0]:,.0f}")
+            st.metric("Output Tokens", f"{float(df['output_tokens'].iloc[0]):,.0f}")
         with col4:
             st.metric("Estimated Cost", f"${cost:,.2f}")
     else:
+        with col1:
+            st.metric("Total Tokens", "N/A")
+        with col2:
+            st.metric("Input Tokens", "N/A")
+        with col3:
+            st.metric("Output Tokens", "N/A")
+        with col4:
+            st.metric("Estimated Cost", "N/A")
         st.info("No AI usage data available")
     
     st.markdown("---")
