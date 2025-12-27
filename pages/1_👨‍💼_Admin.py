@@ -276,7 +276,8 @@ with tabs[0]:
         else:
             st.info("No grade data available")
     
-    # Charts row 2
+    # Charts row 2 - Case Study Engagement
+    st.markdown("---")
     st.markdown("### 🎯 Case Study Engagement: Total Completions")
     df = run_query(f"""
         SELECT 
@@ -311,7 +312,7 @@ with tabs[0]:
             plot_bgcolor='#262730',
             paper_bgcolor='#0E1117',
             font=dict(color='#FAFAFA'),
-            height=400,
+            height=500,
             yaxis={'categoryorder': 'total ascending'}  # Sort by value
         )
         
@@ -319,10 +320,9 @@ with tabs[0]:
     else:
         st.info("No case study data available")
     
+    # Charts row 3 - Session Engagement
     st.markdown("---")
-    
-    # Charts row 3 - Session Engagement (full width)
-    st.markdown("### 📱 Session Engagement")
+    st.markdown("### 📱 Session Engagement Metrics")
     df = run_query(f"""
         SELECT 
             DATE(start_timestamp) as date,
@@ -335,7 +335,7 @@ with tabs[0]:
     """)
     if df is not None and not df.empty:
         fig = create_multi_line_chart(df, 'date', ['avg_duration_minutes', 'avg_pageviews'], 
-                                     'Session Engagement Metrics', height=400)
+                                     'Session Engagement Metrics', height=450)
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No engagement data available")
