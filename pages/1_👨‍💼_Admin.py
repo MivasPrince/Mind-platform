@@ -281,15 +281,14 @@ with tabs[0]:
     
     with col1:
         st.markdown("### 🎯 Case Study Performance")
-        # FIXED: Join through conversation table since grades might not have case_study_id directly
+        # FIXED: grades table has 'case_study' column (not case_study_id)
         df = run_query(f"""
             SELECT 
                 c.title as case_study,
                 ROUND(AVG(g.final_score), 2) as avg_score,
                 COUNT(DISTINCT g.user) as students
             FROM `{DATASET_ID}.grades` g
-            JOIN `{DATASET_ID}.conversation` conv ON g.conversation_id = conv.conversation_id
-            JOIN `{DATASET_ID}.casestudy` c ON conv.case_study_id = c.case_study_id
+            JOIN `{DATASET_ID}.casestudy` c ON g.case_study = c.case_study_id
             WHERE g.final_score IS NOT NULL
             GROUP BY c.title
             ORDER BY avg_score DESC
