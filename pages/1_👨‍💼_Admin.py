@@ -40,11 +40,12 @@ if not can_access_page(user['role'], 'Admin'):
 # Sidebar
 show_user_info_sidebar()
 
-# Display logo if available
+# Display logo if available (fails silently if not)
 try:
     from utils.logo_handler import display_logo
     display_logo("sidebar", width=180)
-except:
+except Exception:
+    # Logo not available - continue without it
     pass
 
 # Database connection
@@ -280,14 +281,15 @@ with tabs[0]:
     
     with col1:
         st.markdown("### 🎯 Case Study Performance")
-        # FIXED: grades table uses 'user' column, not 'user_id'
+        # FIXED: Join through conversation table since grades might not have case_study_id directly
         df = run_query(f"""
             SELECT 
                 c.title as case_study,
                 ROUND(AVG(g.final_score), 2) as avg_score,
                 COUNT(DISTINCT g.user) as students
             FROM `{DATASET_ID}.grades` g
-            JOIN `{DATASET_ID}.casestudy` c ON g.case_study_id = c.case_study_id
+            JOIN `{DATASET_ID}.conversation` conv ON g.conversation_id = conv.conversation_id
+            JOIN `{DATASET_ID}.casestudy` c ON conv.case_study_id = c.case_study_id
             WHERE g.final_score IS NOT NULL
             GROUP BY c.title
             ORDER BY avg_score DESC
