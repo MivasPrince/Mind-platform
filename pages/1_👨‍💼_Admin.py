@@ -341,6 +341,131 @@ with tabs[0]:
             st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("No engagement data available")
+    
+    # Charts row 3 - NEW CHARTS FROM NOTEBOOK
+    st.markdown("---")
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.markdown("### 📈 Platform Growth & Retention: Weekly Active Users")
+        df = run_query(f"""
+            WITH user_first_appearance AS (
+                SELECT 
+                    distinct_id, 
+                    MIN(TIMESTAMP_TRUNC(start_timestamp, WEEK)) as join_week
+                FROM `{DATASET_ID}.session_analytics`
+                GROUP BY 1
+            ),
+            weekly_usage AS (
+                SELECT 
+                    TIMESTAMP_TRUNC(s.start_timestamp, WEEK) as activity_week,
+                    s.distinct_id,
+                    f.join_week
+                FROM `{DATASET_ID}.session_analytics` s
+                JOIN user_first_appearance f ON s.distinct_id = f.distinct_id
+            ),
+            growth_metrics AS (
+                SELECT 
+                    activity_week,
+                    COUNT(DISTINCT CASE WHEN activity_week = join_week THEN distinct_id END) as new_signups,
+                    COUNT(DISTINCT CASE WHEN activity_week > join_week THEN distinct_id END) as returning_users
+                FROM weekly_usage
+                GROUP BY 1
+            )
+            SELECT * FROM growth_metrics ORDER BY activity_week
+        """)
+        
+        if df is not None and not df.empty:
+            fig = go.Figure()
+            
+            # New Signups line
+            fig.add_trace(go.Scatter(
+                x=df['activity_week'],
+                y=df['new_signups'],
+                name='New Signups',
+                mode='lines+markers',
+                line=dict(color='#3498db', width=3),
+                marker=dict(size=8, symbol='circle'),
+                fill='tonexty',
+                fillcolor='rgba(52, 152, 219, 0.1)'
+            ))
+            
+            # Returning Users line
+            fig.add_trace(go.Scatter(
+                x=df['activity_week'],
+                y=df['returning_users'],
+                name='Returning Users',
+                mode='lines+markers',
+                line=dict(color='#2ecc71', width=3),
+                marker=dict(size=8, symbol='square'),
+                fill='tonexty',
+                fillcolor='rgba(46, 204, 113, 0.1)'
+            ))
+            
+            fig.update_layout(
+                title='Platform Growth & Retention: Weekly Active User Breakdown',
+                xaxis_title='Week',
+                yaxis_title='Number of Unique Users',
+                template='plotly_dark',
+                plot_bgcolor='#262730',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                hovermode='x unified',
+                legend=dict(
+                    orientation="h",
+                    yanchor="bottom",
+                    y=1.02,
+                    xanchor="right",
+                    x=1
+                ),
+                height=400
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No growth data available")
+    
+    with col2:
+        st.markdown("### 📊 Case Study Activity: Weekly Volume")
+        df = run_query(f"""
+            SELECT 
+                TIMESTAMP_TRUNC(timestamp, WEEK) as week_start,
+                COUNT(*) as attempt_count
+            FROM `{DATASET_ID}.grades`
+            GROUP BY 1
+            ORDER BY week_start ASC
+        """)
+        
+        if df is not None and not df.empty:
+            # Add sequential week numbers
+            df['week_num'] = range(1, len(df) + 1)
+            
+            fig = go.Figure(go.Bar(
+                x=df['week_num'],
+                y=df['attempt_count'],
+                marker=dict(color='#3498db'),
+                text=df['attempt_count'],
+                textposition='outside',
+                textfont=dict(size=10, color='#FAFAFA'),
+                hovertemplate='<b>Week %{x}</b><br>Attempts: %{y}<extra></extra>'
+            ))
+            
+            fig.update_layout(
+                title='Case Study Activity: Weekly Volume',
+                xaxis_title='Week Number',
+                yaxis_title='Total Attempts',
+                template='plotly_dark',
+                plot_bgcolor='#262730',
+                paper_bgcolor='#0E1117',
+                font=dict(color='#FAFAFA'),
+                height=400,
+                bargap=0.1
+            )
+            
+            st.plotly_chart(fig, use_container_width=True)
+        else:
+            st.info("No weekly activity data available")
 
 # TAB 2: USER ANALYTICS
 with tabs[1]:
