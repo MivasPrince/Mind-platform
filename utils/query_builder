@@ -1,0 +1,313 @@
+"""
+Query Builder
+SQL query templates for MIND Platform analytics
+"""
+
+from config.database import DATASET_ID
+from datetime import datetime, timedelta
+
+
+class QueryBuilder:
+    """SQL query templates for different analytics needs"""
+    
+    @staticmethod
+    def get_total_users() -> str:
+        """Get total registered users"""
+        return f"""
+        SELECT COUNT(DISTINCT user_id) as total_users
+        FROM `{DATASET_ID}.user`
+        """
+    
+    @staticmethod
+    def get_active_users(days: int = 30) -> str:
+        """Get active users in last N days"""
+        return f"""
+        SELECT COUNT(DISTINCT user_id) as active_users
+        FROM `{DATASET_ID}.sessions`
+        WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
+        """
+    
+    @staticmethod
+    def get_total_sessions() -> str:
+        """Get total learning sessions"""
+        return f"""
+        SELECT COUNT(*) as total_sessions
+        FROM `{DATASET_ID}.sessions`
+        """
+    
+    @staticmethod
+    def get_total_conversations() -> str:
+        """Get total AI conversations"""
+        return f"""
+        SELECT COUNT(*) as total_conversations
+        FROM `{DATASET_ID}.conversation`
+        """
+    
+    @staticmethod
+    def get_average_grade() -> str:
+        """Get average student grade"""
+        return f"""
+        SELECT 
+            ROUND(AVG(final_score), 2) as avg_grade,
+            ROUND(AVG(communication), 2) as avg_communication,
+            ROUND(AVG(comprehension), 2) as avg_comprehension,
+            ROUND(AVG(critical_thinking), 2) as avg_critical_thinking
+        FROM `{DATASET_ID}.grades`
+        WHERE final_score IS NOT NULL
+        """
+    
+    @staticmethod
+    def get_system_health() -> str:
+        """Get system health metrics from telemetry"""
+        return f"""
+        SELECT 
+            COUNT(*) as total_requests,
+            COUNTIF(derived_is_error = TRUE) as error_count,
+            ROUND(AVG(derived_response_time_ms), 2) as avg_response_time,
+            ROUND(APPROX_QUANTILES(derived_response_time_ms, 100)[OFFSET(95)], 2) as p95_latency,
+            ROUND(APPROX_QUANTILES(derived_response_time_ms, 100)[OFFSET(99)], 2) as p99_latency
+        FROM `{DATASET_ID}.backend_telemetry`
+        WHERE created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+        """
+    
+    @staticmethod
+    def get_ai_token_usage() -> str:
+        """Get AI token consumption"""
+        return f"""
+        SELECT 
+            SUM(derived_ai_total_tokens) as total_tokens,
+            SUM(derived_ai_input_tokens) as input_tokens,
+            SUM(derived_ai_output_tokens) as output_tokens,
+            COUNT(DISTINCT derived_ai_model) as models_used
+        FROM `{DATASET_ID}.backend_telemetry`
+        WHERE derived_ai_total_tokens IS NOT NULL
+        """
+    
+    @staticmethod
+    def get_daily_active_users(days: int = 30) -> str:
+        """Get daily active users trend"""
+        return f"""
+        SELECT 
+            DATE(start_time) as date,
+            COUNT(DISTINCT user_id) as active_users
+        FROM `{DATASET_ID}.sessions`
+        WHERE start_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {days} DAY)
+        GROUP BY date
+        ORDER BY date
+        """
+    
+    @staticmethod
+    def get_grade_distribution() -> str:
+        """Get grade distribution"""
+        return f"""
+        SELECT 
+            CASE 
+                WHEN final_score >= 90 THEN 'A (90-100)'
+                WHEN final_score >= 80 THEN 'B (80-89)'
+                WHEN final_score >= 70 THEN 'C (70-79)'
+                WHEN final_score >= 60 THEN 'D (60-69)'
+                ELSE 'F (Below 60)'
+            END as grade_bracket,
+            COUNT(*) as count
+        FROM `{DATASET_ID}.grades`
+        WHERE final_score IS NOT NULL
+        GROUP BY grade_bracket
+        ORDER BY grade_bracket
+        """
+    
+    @staticmethod
+    def get_case_study_performance() -> str:
+        """Get performance by case study"""
+        return f"""
+        SELECT 
+            c.title as case_study,
+            COUNT(DISTINCT g.user_id) as students_attempted,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            ROUND(AVG(g.communication), 2) as avg_communication,
+            ROUND(AVG(g.comprehension), 2) as avg_comprehension,
+            ROUND(AVG(g.critical_thinking), 2) as avg_critical_thinking
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.casestudy` c ON g.case_study_id = c.case_study_id
+        WHERE g.final_score IS NOT NULL
+        GROUP BY c.title
+        ORDER BY avg_score DESC
+        """
+    
+    @staticmethod
+    def get_student_performance(user_id: str = None) -> str:
+        """Get individual student performance"""
+        user_filter = f"AND g.user_id = '{user_id}'" if user_id else ""
+        return f"""
+        SELECT 
+            u.name as student_name,
+            u.student_email,
+            u.department,
+            u.cohort,
+            COUNT(DISTINCT g.conversation_id) as attempts,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            ROUND(AVG(g.communication), 2) as avg_communication,
+            ROUND(AVG(g.comprehension), 2) as avg_comprehension,
+            ROUND(AVG(g.critical_thinking), 2) as avg_critical_thinking,
+            MAX(g.timestamp) as last_attempt
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.user` u ON g.user_id = u.user_id
+        WHERE g.final_score IS NOT NULL {user_filter}
+        GROUP BY u.name, u.student_email, u.department, u.cohort
+        ORDER BY avg_score DESC
+        """
+    
+    @staticmethod
+    def get_session_engagement() -> str:
+        """Get session engagement metrics"""
+        return f"""
+        SELECT 
+            DATE(start_timestamp) as date,
+            COUNT(*) as total_sessions,
+            ROUND(AVG(session_duration_seconds / 60.0), 2) as avg_duration_minutes,
+            COUNTIF(is_bounce = TRUE) as bounce_sessions,
+            ROUND(AVG(pageview_count), 2) as avg_pageviews
+        FROM `{DATASET_ID}.session_analytics`
+        WHERE start_timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+        GROUP BY date
+        ORDER BY date
+        """
+    
+    @staticmethod
+    def get_error_log(limit: int = 100) -> str:
+        """Get recent errors from telemetry"""
+        return f"""
+        SELECT 
+            created_at,
+            span_name,
+            http_route,
+            http_status_code,
+            derived_response_time_ms,
+            service_name
+        FROM `{DATASET_ID}.backend_telemetry`
+        WHERE derived_is_error = TRUE
+        ORDER BY created_at DESC
+        LIMIT {limit}
+        """
+    
+    @staticmethod
+    def get_ai_model_distribution() -> str:
+        """Get AI model usage distribution"""
+        return f"""
+        SELECT 
+            derived_ai_model as model,
+            COUNT(*) as request_count,
+            SUM(derived_ai_total_tokens) as total_tokens,
+            ROUND(AVG(derived_ai_total_tokens), 2) as avg_tokens_per_request
+        FROM `{DATASET_ID}.backend_telemetry`
+        WHERE derived_ai_model IS NOT NULL
+        GROUP BY model
+        ORDER BY request_count DESC
+        """
+    
+    @staticmethod
+    def get_response_time_by_route() -> str:
+        """Get response time by API route"""
+        return f"""
+        SELECT 
+            http_route,
+            COUNT(*) as request_count,
+            ROUND(AVG(derived_response_time_ms), 2) as avg_latency,
+            ROUND(APPROX_QUANTILES(derived_response_time_ms, 100)[OFFSET(95)], 2) as p95_latency,
+            ROUND(APPROX_QUANTILES(derived_response_time_ms, 100)[OFFSET(99)], 2) as p99_latency
+        FROM `{DATASET_ID}.backend_telemetry`
+        WHERE http_route IS NOT NULL
+            AND created_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+        GROUP BY http_route
+        ORDER BY request_count DESC
+        LIMIT 20
+        """
+    
+    @staticmethod
+    def get_trace_details(trace_id: str) -> str:
+        """Get full trace details for debugging"""
+        return f"""
+        SELECT 
+            *
+        FROM `{DATASET_ID}.backend_telemetry`
+        WHERE trace_id = '{trace_id}'
+        ORDER BY start_timestamp
+        """
+    
+    @staticmethod
+    def get_conversation_transcript(conversation_id: str) -> str:
+        """Get conversation transcript"""
+        return f"""
+        SELECT 
+            c.conversation_id,
+            c.timestamp,
+            c.transcript,
+            c.session_attempt,
+            g.final_score,
+            g.performance_summary,
+            g.communication,
+            g.comprehension,
+            g.critical_thinking
+        FROM `{DATASET_ID}.conversation` c
+        LEFT JOIN `{DATASET_ID}.grades` g ON c.conversation_id = g.conversation_id
+        WHERE c.conversation_id = '{conversation_id}'
+        """
+    
+    @staticmethod
+    def get_students_at_risk(threshold: float = 60.0) -> str:
+        """Get students performing below threshold"""
+        return f"""
+        SELECT 
+            u.name as student_name,
+            u.student_email,
+            u.department,
+            u.cohort,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            COUNT(*) as attempts,
+            MAX(g.timestamp) as last_attempt
+        FROM `{DATASET_ID}.grades` g
+        JOIN `{DATASET_ID}.user` u ON g.user_id = u.user_id
+        WHERE g.final_score IS NOT NULL
+        GROUP BY u.user_id, u.name, u.student_email, u.department, u.cohort
+        HAVING avg_score < {threshold}
+        ORDER BY avg_score ASC
+        """
+    
+    @staticmethod
+    def get_cohort_performance(cohort: str = None) -> str:
+        """Get performance by cohort"""
+        cohort_filter = f"AND u.cohort = '{cohort}'" if cohort else ""
+        return f"""
+        SELECT 
+            u.cohort,
+            COUNT(DISTINCT u.user_id) as total_students,
+            COUNT(DISTINCT g.conversation_id) as total_attempts,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            ROUND(AVG(g.communication), 2) as avg_communication,
+            ROUND(AVG(g.comprehension), 2) as avg_comprehension,
+            ROUND(AVG(g.critical_thinking), 2) as avg_critical_thinking
+        FROM `{DATASET_ID}.user` u
+        LEFT JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user_id
+        WHERE u.cohort IS NOT NULL {cohort_filter}
+        GROUP BY u.cohort
+        ORDER BY u.cohort
+        """
+    
+    @staticmethod
+    def get_department_performance(department: str = None) -> str:
+        """Get performance by department"""
+        dept_filter = f"AND u.department = '{department}'" if department else ""
+        return f"""
+        SELECT 
+            u.department,
+            COUNT(DISTINCT u.user_id) as total_students,
+            COUNT(DISTINCT g.conversation_id) as total_attempts,
+            ROUND(AVG(g.final_score), 2) as avg_score,
+            ROUND(AVG(g.communication), 2) as avg_communication,
+            ROUND(AVG(g.comprehension), 2) as avg_comprehension,
+            ROUND(AVG(g.critical_thinking), 2) as avg_critical_thinking
+        FROM `{DATASET_ID}.user` u
+        LEFT JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user_id
+        WHERE u.department IS NOT NULL {dept_filter}
+        GROUP BY u.department
+        ORDER BY u.department
+        """
