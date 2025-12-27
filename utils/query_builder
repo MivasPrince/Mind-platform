@@ -3,8 +3,10 @@ Query Builder
 SQL query templates for MIND Platform analytics
 """
 
-from config.database import DATASET_ID
 from datetime import datetime, timedelta
+
+# Hardcode DATASET_ID to avoid circular imports
+DATASET_ID = "gen-lang-client-0625543859.mind_analytics"
 
 
 class QueryBuilder:
