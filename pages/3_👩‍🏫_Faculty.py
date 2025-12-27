@@ -12,12 +12,17 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import streamlit as st
 import pandas as pd
 from datetime import datetime
-from utils import (
-    require_authentication, show_user_info_sidebar, get_current_user,
+
+# Direct imports from utils modules
+from utils.auth_handler import (
+    require_authentication, show_user_info_sidebar, get_current_user
+)
+from utils.chart_components import (
     create_metric_cards, plot_heatmap, plot_bar_chart, plot_box_plot,
     plot_radar_chart, create_multi_line_chart, export_dataframe_to_csv,
-    export_dataframe_to_excel, QueryBuilder
+    export_dataframe_to_excel
 )
+from utils.query_builder import QueryBuilder
 from config.database import get_cached_query, run_query, DATASET_ID
 from config.auth import can_access_page
 
