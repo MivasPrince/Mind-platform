@@ -105,7 +105,50 @@ def has_permission(permission: str) -> bool:
 
 
 def show_login_page():
-    """Display login page"""
+    """Display login page with theme-aware MIVA logo"""
+    import base64
+    import os
+    
+    # Initialize theme if not set
+    if 'theme' not in st.session_state:
+        st.session_state.theme = 'dark'  # Default to dark theme
+    
+    # Theme toggle in top corner
+    col_left, col_center, col_right = st.columns([1, 3, 1])
+    with col_right:
+        # Small theme toggle
+        if st.session_state.theme == 'dark':
+            if st.button("☀️", help="Switch to light mode", key="login_theme_toggle"):
+                st.session_state.theme = 'light'
+                st.rerun()
+        else:
+            if st.button("🌙", help="Switch to dark mode", key="login_theme_toggle"):
+                st.session_state.theme = 'dark'
+                st.rerun()
+    
+    # Apply theme CSS
+    if st.session_state.theme == 'light':
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #ffffff;
+                color: #262730;
+            }
+            .login-container {
+                background-color: #f0f2f6 !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+            <style>
+            .stApp {
+                background-color: #0e1117;
+                color: #fafafa;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+    
     st.markdown("""
         <style>
         .login-container {
@@ -116,13 +159,45 @@ def show_login_page():
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
         }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .logo-container img {
+            max-width: 200px;
+            height: auto;
+        }
         </style>
     """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown("# 🧠 MIND Platform")
+        # Display theme-aware MIVA logo
+        try:
+            # Select logo based on theme
+            if st.session_state.theme == 'dark':
+                logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
+            else:
+                logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
+            
+            # Try to load and display logo
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as f:
+                    logo_b64 = base64.b64encode(f.read()).decode()
+                
+                st.markdown(f"""
+                    <div class="logo-container">
+                        <img src="data:image/png;base64,{logo_b64}" alt="MIVA Logo">
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Fallback if logo not found
+                st.markdown("# 🧠 MIND Platform")
+        except Exception:
+            # Fallback on any error
+            st.markdown("# 🧠 MIND Platform")
+        
         st.markdown("### Educational Analytics Dashboard")
         st.markdown("---")
         
@@ -146,7 +221,7 @@ def show_login_page():
         - Faculty: `faculty@mind.edu`
         - Student: `student@mind.edu`
         
-        **Password:** `mind2024`
+        **Password:** `mind2026`
         """)
 
 
