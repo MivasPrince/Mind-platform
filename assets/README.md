@@ -1,5 +1,11 @@
 # MIND Platform Analytics Dashboard
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/miva_logo_dark.png">
+  <source media="(prefers-color-scheme: light)" srcset="assets/miva_logo_light.png">
+  <img alt="MIVA Logo" src="assets/miva_logo_dark.png" width="300">
+</picture>
+
 **Version:** 1.0  
 **Status:** Production-Ready  
 **Last Updated:** December 2025
