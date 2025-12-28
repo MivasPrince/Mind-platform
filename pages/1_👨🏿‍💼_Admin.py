@@ -27,7 +27,7 @@ except:
 # Page config
 st.set_page_config(
     page_title="Admin Dashboard | MIND Platform",
-    page_icon="👨‍💼",
+    page_icon="👨🏿‍💼",
     layout="wide"
 )
 
@@ -262,7 +262,7 @@ def create_multi_line_chart(df, x, y_columns, title, height=400):
     return fig
 
 # Header
-st.title("👨‍💼 Admin Dashboard")
+st.title("👨🏿‍💼 Admin Dashboard")
 st.markdown("### System Health, Governance & Resource Management")
 st.markdown("---")
 
@@ -293,7 +293,7 @@ with st.sidebar:
 tabs = st.tabs([
     "📊 Overview",
     "👥 User Analytics",
-    "🎓 Learning Metrics",
+    "👨🏿‍🎓 Learning Metrics",
     "🤖 AI Resources",
     "🏥 System Health",
     "⚙️ Settings"
@@ -750,7 +750,7 @@ with tabs[1]:
 
 # TAB 3: LEARNING METRICS
 with tabs[2]:
-    st.markdown("## 🎓 Learning Analytics")
+    st.markdown("## 👨🏿‍🎓 Learning Analytics")
     
     # KPIs
     col1, col2, col3, col4 = st.columns(4)
