@@ -27,7 +27,7 @@ except Exception:
 # Page config
 st.set_page_config(
     page_title="Faculty Dashboard | MIND Platform",
-    page_icon="👩‍🏫",
+    page_icon="👩🏿‍🏫",
     layout="wide"
 )
 
@@ -203,7 +203,7 @@ def create_multi_line_chart(df, x, y_columns, title, height=400):
     return fig
 
 # Header
-st.title("👩‍🏫 Faculty Dashboard")
+st.title("👩🏿‍🏫 Faculty Dashboard")
 st.markdown("### Academic Insights & Learning Analytics")
 st.markdown("---")
 
