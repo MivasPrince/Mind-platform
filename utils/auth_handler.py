@@ -167,6 +167,13 @@ def show_login_page():
             max-width: 200px;
             height: auto;
         }
+        .dashboard-title {
+            text-align: center;
+            margin-top: 1rem;
+            margin-bottom: 2rem;
+            font-size: 1.5rem;
+            font-weight: 400;
+        }
         </style>
     """, unsafe_allow_html=True)
     
@@ -198,7 +205,8 @@ def show_login_page():
             # Fallback on any error
             st.markdown("# 🧠 MIND Platform")
         
-        st.markdown("### MIND Analytics Dashboard")
+        # Centered dashboard title
+        st.markdown('<div class="dashboard-title">MIND Analytics Dashboard</div>', unsafe_allow_html=True)
         st.markdown("---")
         
         with st.form("login_form"):
