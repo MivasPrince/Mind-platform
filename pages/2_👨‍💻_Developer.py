@@ -27,7 +27,7 @@ except Exception:
 # Page config
 st.set_page_config(
     page_title="Developer Dashboard | MIND Platform",
-    page_icon="👨‍💻",
+    page_icon="👨🏿‍💻",
     layout="wide"
 )
 
@@ -203,7 +203,7 @@ def create_multi_line_chart(df, x, y_columns, title, height=400):
     return fig
 
 # Header
-st.title("👨‍💻 Developer Dashboard")
+st.title("👨🏿‍💻 Developer Dashboard")
 st.markdown("### AI Performance, API Analytics & System Debugging")
 st.markdown("---")
 
