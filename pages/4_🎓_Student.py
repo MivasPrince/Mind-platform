@@ -109,6 +109,21 @@ try:
             .stMarkdown, .stText {
                 color: #262730;
             }
+            /* Chart/Plot containers - white backgrounds */
+            div[data-testid="stPlotlyChart"] {
+                background-color: #ffffff !important;
+            }
+            .js-plotly-plot {
+                background-color: #ffffff !important;
+            }
+            /* Metric containers */
+            div[data-testid="stMetric"] {
+                background-color: #ffffff;
+            }
+            /* Dataframe containers */
+            div[data-testid="stDataFrame"] {
+                background-color: #ffffff;
+            }
             </style>
         """, unsafe_allow_html=True)
     else:
@@ -174,14 +189,14 @@ DATASET_ID = "gen-lang-client-0625543859.mind_analytics"
 
 # Chart helper functions
 def plot_bar_chart(df, x, y, title, orientation='v', height=400, color=None):
-    fig = px.bar(df, x=x, y=y, title=title, template='plotly_dark', orientation=orientation, 
+    fig = px.bar(df, x=x, y=y, title=title, template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), orientation=orientation, 
                  height=height, color=color)
-    fig.update_layout(plot_bgcolor='#262730', paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'))
+    fig.update_layout(plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')))
     return fig
 
 def plot_line_chart(df, x, y, title, height=400):
-    fig = px.line(df, x=x, y=y, title=title, template='plotly_dark', height=height, markers=True)
-    fig.update_layout(plot_bgcolor='#262730', paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'), 
+    fig = px.line(df, x=x, y=y, title=title, template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), height=height, markers=True)
+    fig.update_layout(plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')), 
                      hovermode='x unified')
     return fig
 
@@ -223,10 +238,10 @@ def plot_gauge(value, title, max_value=100, height=300):
     ))
     
     fig.update_layout(
-        template='plotly_dark', 
-        plot_bgcolor='#262730', 
-        paper_bgcolor='#0E1117', 
-        font=dict(color='#FAFAFA'), 
+        template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), 
+        plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), 
+        paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), 
+        font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')), 
         height=height,
         margin=dict(l=20, r=20, t=50, b=20)
     )
@@ -454,10 +469,10 @@ with tabs[0]:
                 title='My Daily Performance Trend',
                 xaxis_title='Date',
                 yaxis_title='Score (%)',
-                template='plotly_dark',
-                plot_bgcolor='#262730',
-                paper_bgcolor='#0E1117',
-                font=dict(color='#FAFAFA'),
+                template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+                plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+                paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+                font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
                 height=300,
                 hovermode='x unified'
             )
@@ -574,10 +589,10 @@ with tabs[1]:
             title='My Score Progression',
             xaxis_title='Date',
             yaxis_title='Score (%)',
-            template='plotly_dark',
-            plot_bgcolor='#262730',
-            paper_bgcolor='#0E1117',
-            font=dict(color='#FAFAFA'),
+            template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+            plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+            paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+            font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
             height=400,
             hovermode='x unified'
         )
@@ -677,10 +692,10 @@ with tabs[2]:
             title='My Scores by Case Study',
             xaxis_title='Case Study',
             yaxis_title='Score (%)',
-            template='plotly_dark',
-            plot_bgcolor='#262730',
-            paper_bgcolor='#0E1117',
-            font=dict(color='#FAFAFA'),
+            template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+            plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+            paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+            font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
             height=400,
             hovermode='x unified'
         )
@@ -894,10 +909,10 @@ with tabs[5]:
             title='My Daily Activity (Last 30 Days)',
             xaxis_title='Date',
             yaxis_title='Submissions',
-            template='plotly_dark',
-            plot_bgcolor='#262730',
-            paper_bgcolor='#0E1117',
-            font=dict(color='#FAFAFA'),
+            template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+            plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+            paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+            font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
             height=300
         )
         
