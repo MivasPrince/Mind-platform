@@ -38,9 +38,12 @@ if not can_access_page(user['role'], 'Student'):
     st.error("⛔ Access Denied: Student privileges required")
     st.stop()
 
-# Get student user_id
-student_user_id = user.get('user_id', None)
-student_name = user.get('name', 'Student')
+# Student selection will be done via dropdown in sidebar
+# TODO: When RBAC is fully implemented, uncomment these lines and remove dropdown
+# student_user_id = user.get('user_id', None)
+# student_name = user.get('name', 'Student')
+student_user_id = None  # Will be set by selector
+student_name = None     # Will be set by selector
 
 # Theme toggle and logo display
 try:
@@ -232,15 +235,59 @@ def plot_gauge(value, title, max_value=100, height=300):
 
 # Header
 st.title("🎓 My Learning Journey")
+
+# Student Selector (for demo/admin purposes - will be replaced with RBAC)
+with st.sidebar:
+    st.markdown("---")
+    st.markdown("### 📚 Student Selector")
+    st.caption("*For demo/testing - RBAC coming soon*")
+    
+    # Get all students who have grades
+    students_df = run_query(f"""
+        SELECT DISTINCT 
+            u.user_id,
+            u.name,
+            u.department,
+            COUNT(g._id) as submission_count
+        FROM `{DATASET_ID}.user` u
+        JOIN `{DATASET_ID}.grades` g ON u.user_id = g.user
+        WHERE g.final_score IS NOT NULL
+        GROUP BY u.user_id, u.name, u.department
+        ORDER BY u.name
+    """)
+    
+    if students_df is not None and not students_df.empty:
+        # Create display options with name and submission count
+        student_options = [f"{row['name']} ({row['submission_count']} submissions)" 
+                          for _, row in students_df.iterrows()]
+        
+        # Student selector
+        selected_idx = st.selectbox(
+            "Select Student:",
+            range(len(student_options)),
+            format_func=lambda i: student_options[i],
+            key="student_selector"
+        )
+        
+        # Get selected student details
+        selected_student = students_df.iloc[selected_idx]
+        student_user_id = selected_student['user_id']
+        student_name = selected_student['name']
+        
+        # Show selected student info
+        st.info(f"👤 **{student_name}**  \n📊 {selected_student['department']}")
+    else:
+        st.error("No student data found in database")
+        student_user_id = None
+        student_name = "Student"
+
 st.markdown(f"### Welcome back, {student_name}!")
 st.markdown("---")
 
-# If no user_id, use demo mode with first student
+# Remove demo mode check - now always using selected student
 if not student_user_id:
-    st.warning("⚠️ Demo Mode: Using sample student data")
-    demo_user = run_query(f"SELECT user FROM `{DATASET_ID}.grades` LIMIT 1")
-    if demo_user is not None and not demo_user.empty:
-        student_user_id = demo_user['user'].iloc[0]
+    st.error("⚠️ No student data available. Please check database connection.")
+    st.stop()
 
 # Main content tabs
 tabs = st.tabs([
