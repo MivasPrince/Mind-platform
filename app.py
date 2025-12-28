@@ -174,25 +174,25 @@ else:
     
     with col1:
         if can_access_page(user_role, 'Admin'):
-            if st.button("👨‍💼 Admin Dashboard", use_container_width=True):
-                st.switch_page("pages/1_👨‍💼_Admin.py")
+            if st.button("👨🏿‍💼 Admin Dashboard", use_container_width=True):
+                st.switch_page("pages/1_👨🏿‍💼_Admin_FIXED.py")
     
     with col2:
         if can_access_page(user_role, 'Developer'):
-            if st.button("👨‍💻 Developer Dashboard", use_container_width=True):
-                st.switch_page("pages/2_👨‍💻_Developer.py")
+            if st.button("👨🏿‍💻 Developer Dashboard", use_container_width=True):
+                st.switch_page("pages/2_👨🏿‍💻_Developer_STANDALONE.py")
     
     with col3:
         if can_access_page(user_role, 'Faculty'):
-            if st.button("👩‍🏫 Faculty Dashboard", use_container_width=True):
-                st.switch_page("pages/3_👩‍🏫_Faculty.py")
+            if st.button("👩🏿‍🏫 Faculty Dashboard", use_container_width=True):
+                st.switch_page("pages/3_👩🏿‍🏫_Faculty_STANDALONE.py")
     
     col4, col5, col6 = st.columns(3)
     
     with col4:
         if can_access_page(user_role, 'Student'):
-            if st.button("🎓 Student Dashboard", use_container_width=True):
-                st.switch_page("pages/4_🎓_Student.py")
+            if st.button("👨🏿‍🎓 Student Dashboard", use_container_width=True):
+                st.switch_page("pages/4_👨🏿‍🎓_Student_STANDALONE.py")
     
     # Footer
     st.markdown("---")
