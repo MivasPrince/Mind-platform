@@ -102,6 +102,21 @@ try:
             .stMarkdown, .stText {
                 color: #262730;
             }
+            /* Chart/Plot containers - white backgrounds */
+            div[data-testid="stPlotlyChart"] {
+                background-color: #ffffff !important;
+            }
+            .js-plotly-plot {
+                background-color: #ffffff !important;
+            }
+            /* Metric containers */
+            div[data-testid="stMetric"] {
+                background-color: #ffffff;
+            }
+            /* Dataframe containers */
+            div[data-testid="stDataFrame"] {
+                background-color: #ffffff;
+            }
             </style>
         """, unsafe_allow_html=True)
     else:
@@ -166,18 +181,18 @@ DATASET_ID = "gen-lang-client-0625543859.mind_analytics"
 
 # Chart helper functions
 def plot_line_chart(df, x, y, title, height=400):
-    fig = px.line(df, x=x, y=y, title=title, template='plotly_dark', height=height)
-    fig.update_layout(plot_bgcolor='#262730', paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'), hovermode='x unified')
+    fig = px.line(df, x=x, y=y, title=title, template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), height=height)
+    fig.update_layout(plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')), hovermode='x unified')
     return fig
 
 def plot_bar_chart(df, x, y, title, orientation='v', height=400):
-    fig = px.bar(df, x=x, y=y, title=title, template='plotly_dark', orientation=orientation, height=height)
-    fig.update_layout(plot_bgcolor='#262730', paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'))
+    fig = px.bar(df, x=x, y=y, title=title, template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), orientation=orientation, height=height)
+    fig.update_layout(plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')))
     return fig
 
 def plot_pie_chart(df, values, names, title, height=400):
-    fig = px.pie(df, values=values, names=names, title=title, template='plotly_dark', height=height, hole=0.4)
-    fig.update_layout(plot_bgcolor='#262730', paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'))
+    fig = px.pie(df, values=values, names=names, title=title, template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), height=height, hole=0.4)
+    fig.update_layout(plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')))
     return fig
 
 def plot_gauge(value, title, max_value=100, height=300):
@@ -218,10 +233,10 @@ def plot_gauge(value, title, max_value=100, height=300):
     ))
     
     fig.update_layout(
-        template='plotly_dark', 
-        plot_bgcolor='#262730', 
-        paper_bgcolor='#0E1117', 
-        font=dict(color='#FAFAFA'), 
+        template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), 
+        plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), 
+        paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), 
+        font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')), 
         height=height,
         margin=dict(l=20, r=20, t=50, b=20)
     )
@@ -234,8 +249,8 @@ def create_multi_line_chart(df, x, y_columns, title, height=400):
     for idx, col in enumerate(y_columns):
         fig.add_trace(go.Scatter(x=df[x], y=df[col], name=col, mode='lines+markers', 
                                 line=dict(color=colors[idx % len(colors)])))
-    fig.update_layout(title=title, template='plotly_dark', plot_bgcolor='#262730', 
-                     paper_bgcolor='#0E1117', font=dict(color='#FAFAFA'), 
+    fig.update_layout(title=title, template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'), plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'), 
+                     paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'), font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')), 
                      hovermode='x unified', height=height)
     return fig
 
@@ -412,10 +427,10 @@ with tabs[0]:
             title='Case Study Engagement: Total Completions',
             xaxis_title='Number of Graded Attempts',
             yaxis_title='Case Study Title',
-            template='plotly_dark',
-            plot_bgcolor='#262730',
-            paper_bgcolor='#0E1117',
-            font=dict(color='#FAFAFA'),
+            template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+            plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+            paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+            font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
             height=500,
             yaxis={'categoryorder': 'total ascending'}  # Sort by value
         )
@@ -509,10 +524,10 @@ with tabs[0]:
                 title='Platform Growth & Retention: Weekly Active User Breakdown',
                 xaxis_title='Week',
                 yaxis_title='Number of Unique Users',
-                template='plotly_dark',
-                plot_bgcolor='#262730',
-                paper_bgcolor='#0E1117',
-                font=dict(color='#FAFAFA'),
+                template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+                plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+                paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+                font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
                 hovermode='x unified',
                 legend=dict(
                     orientation="h",
@@ -557,10 +572,10 @@ with tabs[0]:
                 title='Case Study Activity: Weekly Volume',
                 xaxis_title='Week Number',
                 yaxis_title='Total Attempts',
-                template='plotly_dark',
-                plot_bgcolor='#262730',
-                paper_bgcolor='#0E1117',
-                font=dict(color='#FAFAFA'),
+                template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+                plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+                paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+                font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
                 height=400,
                 bargap=0.1
             )
@@ -813,10 +828,10 @@ with tabs[2]:
             xaxis_title='Score (%)',
             yaxis_title='Case Study',
             barmode='group',
-            template='plotly_dark',
-            plot_bgcolor='#262730',
-            paper_bgcolor='#0E1117',
-            font=dict(color='#FAFAFA'),
+            template=('plotly' if st.session_state.get('theme') == 'light' else 'plotly_dark'),
+            plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
+            paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
+            font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
             height=max(400, len(df) * 50),  # Dynamic height based on number of case studies
             xaxis=dict(range=[0, 115]),
             yaxis={'categoryorder': 'total ascending'},
