@@ -220,17 +220,6 @@ def show_login_page():
                     st.rerun()
                 else:
                     st.error("Invalid email or password")
-        
-        st.markdown("---")
-        st.markdown("""
-        **Demo Accounts:**
-        - Admin: `admin@mind.edu`
-        - Developer: `dev@mind.edu`
-        - Faculty: `faculty@mind.edu`
-        - Student: `student@mind.edu`
-        
-        **Password:** `mind2026`
-        """)
 
 
 def show_user_info_sidebar():
