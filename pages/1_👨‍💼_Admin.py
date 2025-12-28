@@ -40,7 +40,7 @@ if not can_access_page(user['role'], 'Admin'):
 
 # Display logo at top of sidebar FIRST
 try:
-    LOGO_PATH = "/mount/src/mind-platform/assets/miva_logo_dark.png"
+    LOGO_PATH = "/mount/src/mind-platform/assets/miva_logo_light.png"
     if os.path.exists(LOGO_PATH):
         st.sidebar.image(LOGO_PATH, width=180)
 except Exception:
