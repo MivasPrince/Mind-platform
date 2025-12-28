@@ -198,7 +198,7 @@ def show_login_page():
             # Fallback on any error
             st.markdown("# 🧠 MIND Platform")
         
-        st.markdown("### Educational Analytics Dashboard")
+        st.markdown("### MIND Analytics Dashboard")
         st.markdown("---")
         
         with st.form("login_form"):
