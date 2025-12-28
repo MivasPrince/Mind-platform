@@ -1,6 +1,6 @@
 """
-Logo Display Utility - Alternative Version with GitHub URL Fallback
-Handles MIVA logo display with multiple fallback strategies
+Logo Display Utility
+Handles MIVA logo display for dark/light modes
 """
 
 import streamlit as st
@@ -24,61 +24,44 @@ def get_logo_path(dark_mode=True):
         
         # Try multiple possible locations
         possible_paths = [
-            # Streamlit Cloud deployment path (update with your repo name)
+            # Streamlit Cloud deployment path (CONFIRMED WORKING)
             Path("/mount/src/mind-platform/assets") / logo_filename,
-            # Alternative Streamlit Cloud path
-            Path("/app/assets") / logo_filename,
-            # Relative to this file (utils/logo_handler.py)
-            Path(__file__).parent.parent / "assets" / logo_filename,
-            # Relative to current working directory
-            Path.cwd() / "assets" / logo_filename,
             # Direct path from root
             Path("assets") / logo_filename,
+            # Relative to current working directory
+            Path.cwd() / "assets" / logo_filename,
+            # Relative to this file (utils/logo_handler.py)
+            Path(__file__).parent.parent / "assets" / logo_filename,
         ]
         
-        # Return first path that exists
+        # Return first path that exists (skip paths with permission errors)
         for path in possible_paths:
-            if path.exists():
-                return str(path)
+            try:
+                if path.exists():
+                    return str(path)
+            except (PermissionError, OSError):
+                # Skip paths that can't be accessed
+                continue
         
         return None
     except Exception:
         return None
 
 
-def get_github_logo_url(dark_mode=True, github_user="MivasPrince", repo_name="Mind-platform", branch="main"):
-    """
-    Get direct URL to logo on GitHub (fallback method)
-    
-    Args:
-        dark_mode: True for dark theme, False for light theme
-        github_user: Your GitHub username
-        repo_name: Your repository name
-        branch: Branch name (usually 'main' or 'master')
-        
-    Returns:
-        URL string to logo on GitHub
-    """
-    logo_filename = "miva_logo_dark.png" if dark_mode else "miva_logo_light.png"
-    return f"https://raw.githubusercontent.com/{github_user}/{repo_name}/{branch}/assets/{logo_filename}"
-
-
-def display_logo(location="sidebar", width=200, use_github_fallback=True):
+def display_logo(location="sidebar", width=200):
     """
     Display MIVA logo in specified location
-    First tries local file, then falls back to GitHub URL if enabled
+    Fails silently if logo files don't exist
     
     Args:
         location: "sidebar", "main", or "login"
         width: Logo width in pixels
-        use_github_fallback: If True, uses GitHub raw URL when local file not found
     """
     try:
-        # Try local file first
+        # Currently using dark mode theme
         logo_path = get_logo_path(dark_mode=True)
         
         if logo_path and os.path.exists(logo_path):
-            # Local file found
             if location == "sidebar":
                 st.sidebar.image(logo_path, width=width)
             elif location == "main":
@@ -89,27 +72,11 @@ def display_logo(location="sidebar", width=200, use_github_fallback=True):
                 col1, col2, col3 = st.columns([1, 2, 1])
                 with col2:
                     st.image(logo_path, width=width)
-        
-        elif use_github_fallback:
-            # Local file not found, try GitHub URL
-            github_url = get_github_logo_url(dark_mode=True)
-            
-            if location == "sidebar":
-                st.sidebar.image(github_url, width=width)
-            elif location == "main":
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    st.image(github_url, width=width)
-            elif location == "login":
-                col1, col2, col3 = st.columns([1, 2, 1])
-                with col2:
-                    st.image(github_url, width=width)
-        
-        # If both methods fail, silently do nothing
+        # If no logo file exists, do nothing (fail silently)
     except Exception as e:
-        # Uncomment for debugging:
-        # if location == "sidebar":
-        #     st.sidebar.caption(f"Logo error: {str(e)}")
+        # Silently fail - don't break the app if logo doesn't exist
+        # Uncomment below for debugging:
+        # st.sidebar.caption(f"Logo not found: {str(e)}")
         pass
 
 
