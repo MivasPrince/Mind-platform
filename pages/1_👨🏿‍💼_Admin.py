@@ -130,13 +130,44 @@ try:
             }
             .stApp {
                 background-color: #0e1117;
-                color: #fafafa;
+                color: #fafafa !important;
             }
             .stSidebar {
                 background-color: #262730;
             }
             section[data-testid="stSidebar"] {
                 background-color: #262730;
+            }
+            /* Force white text on all text elements */
+            .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
+                color: #fafafa !important;
+            }
+            /* Headers specifically */
+            .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+            .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+                color: #ffffff !important;
+            }
+            /* Metric labels and values */
+            div[data-testid="stMetric"] label,
+            div[data-testid="stMetric"] div {
+                color: #fafafa !important;
+            }
+            /* Table text */
+            .dataframe, .dataframe td, .dataframe th {
+                color: #fafafa !important;
+            }
+            /* Tab labels */
+            button[data-baseweb="tab"] {
+                color: #fafafa !important;
+            }
+            /* Input labels */
+            .stTextInput label, .stSelectbox label, .stMultiSelect label,
+            .stSlider label, .stRadio label, .stCheckbox label {
+                color: #fafafa !important;
+            }
+            /* Expander headers */
+            .streamlit-expanderHeader {
+                color: #fafafa !important;
             }
             </style>
         """, unsafe_allow_html=True)
