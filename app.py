@@ -15,94 +15,218 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for better aesthetics
-st.markdown("""
-    <style>
-    /* Main container styling */
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-    
-    /* Metric cards */
-    [data-testid="stMetricValue"] {
-        font-size: 2rem;
-        font-weight: 600;
-    }
-    
-    [data-testid="stMetricDelta"] {
-        font-size: 1rem;
-    }
-    
-    /* Headers */
-    h1 {
-        color: #FF6B6B;
-        padding-bottom: 1rem;
-        border-bottom: 2px solid #FF6B6B;
-    }
-    
-    h2 {
-        color: #4ECDC4;
-        margin-top: 2rem;
-    }
-    
-    h3 {
-        color: #45B7D1;
-    }
-    
-    /* Cards and containers */
-    .stAlert {
-        border-radius: 10px;
-    }
-    
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #1a1a1a;
-    }
-    
-    /* Buttons */
-    .stButton>button {
-        border-radius: 8px;
-        border: 1px solid #FF6B6B;
-        transition: all 0.3s;
-    }
-    
-    .stButton>button:hover {
-        background-color: #FF6B6B;
-        color: white;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
-    }
-    
-    /* DataFrames */
-    .dataframe {
-        border-radius: 8px;
-    }
-    
-    /* Hide hamburger menu and footer */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    
-    /* Custom scrollbar */
-    ::-webkit-scrollbar {
-        width: 10px;
-        height: 10px;
-    }
-    
-    ::-webkit-scrollbar-track {
-        background: #262730;
-    }
-    
-    ::-webkit-scrollbar-thumb {
-        background: #FF6B6B;
-        border-radius: 5px;
-    }
-    
-    ::-webkit-scrollbar-thumb:hover {
-        background: #ff5252;
-    }
-    </style>
-""", unsafe_allow_html=True)
+# Initialize theme if not set
+if 'theme' not in st.session_state:
+    st.session_state.theme = 'dark'
+
+# Apply theme-specific CSS
+if st.session_state.theme == 'light':
+    st.markdown("""
+        <style>
+        /* Light theme */
+        .stApp {
+            background-color: #ffffff;
+            color: #262730 !important;
+        }
+        .stSidebar, section[data-testid="stSidebar"] {
+            background-color: #f0f2f6;
+        }
+        /* Force dark text in light mode */
+        .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
+            color: #262730 !important;
+        }
+        
+        /* Main container styling */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        
+        /* Metric cards */
+        [data-testid="stMetricValue"] {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        
+        [data-testid="stMetricDelta"] {
+            font-size: 1rem;
+        }
+        
+        /* Headers */
+        h1 {
+            color: #e63946 !important;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #e63946;
+        }
+        
+        h2 {
+            color: #457b9d !important;
+            margin-top: 2rem;
+        }
+        
+        h3 {
+            color: #1d3557 !important;
+        }
+        
+        /* Cards and containers */
+        .stAlert {
+            border-radius: 10px;
+        }
+        
+        /* Buttons */
+        .stButton>button {
+            border-radius: 8px;
+            border: 1px solid #e63946;
+            transition: all 0.3s;
+            color: #262730 !important;
+        }
+        
+        .stButton>button:hover {
+            background-color: #e63946;
+            color: white !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(230, 57, 70, 0.3);
+        }
+        
+        /* DataFrames */
+        .dataframe {
+            border-radius: 8px;
+        }
+        
+        /* Hide hamburger menu and footer */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #e0e0e0;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #e63946;
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #c7313a;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+else:
+    st.markdown("""
+        <style>
+        /* Dark theme (default) */
+        .stApp {
+            background-color: #0e1117;
+            color: #fafafa !important;
+        }
+        .stSidebar, section[data-testid="stSidebar"] {
+            background-color: #262730;
+        }
+        /* Force white text on all elements in dark mode */
+        .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
+            color: #fafafa !important;
+        }
+        /* Headers specifically */
+        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
+        .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
+            color: #ffffff !important;
+        }
+        /* Metric labels and values */
+        div[data-testid="stMetric"] label,
+        div[data-testid="stMetric"] div {
+            color: #fafafa !important;
+        }
+        /* Button text */
+        .stButton>button {
+            color: #fafafa !important;
+        }
+        
+        /* Main container styling */
+        .block-container {
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+        
+        /* Metric cards */
+        [data-testid="stMetricValue"] {
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        
+        [data-testid="stMetricDelta"] {
+            font-size: 1rem;
+        }
+        
+        /* Headers */
+        h1 {
+            color: #FF6B6B !important;
+            padding-bottom: 1rem;
+            border-bottom: 2px solid #FF6B6B;
+        }
+        
+        h2 {
+            color: #4ECDC4 !important;
+            margin-top: 2rem;
+        }
+        
+        h3 {
+            color: #45B7D1 !important;
+        }
+        
+        /* Cards and containers */
+        .stAlert {
+            border-radius: 10px;
+        }
+        
+        /* Buttons */
+        .stButton>button {
+            border-radius: 8px;
+            border: 1px solid #FF6B6B;
+            transition: all 0.3s;
+        }
+        
+        .stButton>button:hover {
+            background-color: #FF6B6B;
+            color: white !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
+        }
+        
+        /* DataFrames */
+        .dataframe {
+            border-radius: 8px;
+        }
+        
+        /* Hide hamburger menu and footer */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 10px;
+            height: 10px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #262730;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #FF6B6B;
+            border-radius: 5px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #ff5252;
+        }
+        </style>
+    """, unsafe_allow_html=True)
 
 # Initialize session state
 initialize_session_state()
