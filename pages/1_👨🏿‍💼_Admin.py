@@ -165,8 +165,85 @@ try:
             .stSlider label, .stRadio label, .stCheckbox label {
                 color: #fafafa !important;
             }
+            /* Input fields - dark backgrounds with white text */
+            input, textarea, select {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+                border: 1px solid #4a4a4a !important;
+            }
+            /* Selectbox dropdown */
+            div[data-baseweb="select"] > div {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+            }
+            /* Selectbox options */
+            div[role="listbox"] {
+                background-color: #262730 !important;
+            }
+            div[role="option"] {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+            }
+            div[role="option"]:hover {
+                background-color: #3a3a3a !important;
+            }
+            /* Date input */
+            input[type="date"], input[type="time"] {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+            }
+            /* Number input */
+            input[type="number"] {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+            }
+            /* Text area */
+            textarea {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+            }
             /* Expander headers */
             .streamlit-expanderHeader {
+                color: #fafafa !important;
+            }
+            /* Input elements and filters */
+            .stSelectbox, .stMultiSelect, .stTextInput, .stTextArea,
+            .stDateInput, .stTimeInput, .stNumberInput {
+                color: #fafafa !important;
+            }
+            /* Select box dropdown */
+            .stSelectbox > div > div {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+            }
+            /* Input fields */
+            input, textarea, select {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+                border: 1px solid #444 !important;
+            }
+            /* Dropdown options */
+            div[role="listbox"] {
+                background-color: #262730 !important;
+            }
+            div[role="option"] {
+                background-color: #262730 !important;
+                color: #fafafa !important;
+            }
+            div[role="option"]:hover {
+                background-color: #363740 !important;
+                color: #ffffff !important;
+            }
+            /* Slider */
+            .stSlider {
+                color: #fafafa !important;
+            }
+            /* Radio buttons */
+            .stRadio label {
+                color: #fafafa !important;
+            }
+            /* Checkbox */
+            .stCheckbox label {
                 color: #fafafa !important;
             }
             </style>
