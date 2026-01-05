@@ -146,6 +146,57 @@ else:
         .stButton>button {
             color: #fafafa !important;
         }
+        /* Input fields - dark backgrounds with white text */
+        input, textarea, select {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+            border: 1px solid #4a4a4a !important;
+        }
+        /* Input placeholders */
+        input::placeholder, textarea::placeholder {
+            color: #999999 !important;
+        }
+        /* Selectbox dropdown */
+        div[data-baseweb="select"] > div {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+        }
+        /* Selectbox options */
+        div[role="listbox"] {
+            background-color: #262730 !important;
+        }
+        div[role="option"] {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+        }
+        div[role="option"]:hover {
+            background-color: #3a3a3a !important;
+        }
+        /* Date/Time inputs */
+        .stDateInput > div > div > input,
+        .stTimeInput > div > div > input {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+        }
+        /* Number inputs */
+        .stNumberInput > div > div > input {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+        }
+        /* Text area */
+        .stTextArea > div > div > textarea {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+        }
+        /* Multiselect */
+        .stMultiSelect > div > div {
+            background-color: #262730 !important;
+            color: #fafafa !important;
+        }
+        /* Slider labels */
+        .stSlider > label {
+            color: #fafafa !important;
+        }
         
         /* Main container styling */
         .block-container {
