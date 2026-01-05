@@ -137,6 +137,28 @@ def show_login_page():
             .login-container {
                 background-color: #f0f2f6 !important;
             }
+            /* Login button styling for light mode */
+            .stButton > button {
+                background-color: #e63946;
+                color: #ffffff !important;
+                border: none;
+                font-weight: 600;
+            }
+            .stButton > button:hover {
+                background-color: #c7313a;
+                color: #ffffff !important;
+                border: none;
+            }
+            /* Form submit button specifically */
+            button[kind="primaryFormSubmit"] {
+                background-color: #e63946 !important;
+                color: #ffffff !important;
+                border: none !important;
+            }
+            button[kind="primaryFormSubmit"]:hover {
+                background-color: #c7313a !important;
+                color: #ffffff !important;
+            }
             </style>
         """, unsafe_allow_html=True)
     else:
@@ -145,6 +167,28 @@ def show_login_page():
             .stApp {
                 background-color: #0e1117;
                 color: #fafafa;
+            }
+            /* Login button styling for dark mode */
+            .stButton > button {
+                background-color: #FF6B6B;
+                color: #ffffff !important;
+                border: none;
+                font-weight: 600;
+            }
+            .stButton > button:hover {
+                background-color: #ff5252;
+                color: #ffffff !important;
+                border: none;
+            }
+            /* Form submit button specifically */
+            button[kind="primaryFormSubmit"] {
+                background-color: #FF6B6B !important;
+                color: #ffffff !important;
+                border: none !important;
+            }
+            button[kind="primaryFormSubmit"]:hover {
+                background-color: #ff5252 !important;
+                color: #ffffff !important;
             }
             </style>
         """, unsafe_allow_html=True)
