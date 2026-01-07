@@ -1339,6 +1339,723 @@ ORDER BY hour
 
 ---
 
+#### 43. Network Connectivity Issues
+**Definition:** Count and analysis of network status changes reported by users.
+
+**Calculation:**
+```sql
+SELECT
+  DATE(timestamp) AS date,
+  JSON_VALUE(properties, '$."$status"') AS network_status,
+  JSON_VALUE(properties, '$."$connection_type"') AS connection_type,
+  COUNT(*) AS status_change_count,
+  COUNT(DISTINCT distinct_id) AS users_affected
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = 'network_status_changed'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  AND timestamp < CURRENT_TIMESTAMP()
+  AND JSON_VALUE(properties, '$."$session_id"') IS NOT NULL
+GROUP BY date, network_status, connection_type
+ORDER BY date DESC, status_change_count DESC
+```
+
+**Business Significance:**
+- Infrastructure reliability assessment
+- User experience quality indicator
+- Mobile vs. desktop connectivity comparison
+- Geographic or ISP-specific issues identification
+
+**Data Source:** PostHog `network_status_changed` events
+
+**Interpretation:**
+- **High change count:** Network instability or poor connectivity
+- **Frequent mobile issues:** Mobile optimization needed
+- **Specific connection types failing:** Provider-specific problems
+
+**Alert Thresholds:**
+- **>100 changes/day:** Investigate infrastructure
+- **>10% users affected:** Critical connectivity issue
+
+---
+
+#### 44. Application Log Summary
+**Definition:** Distribution of application logs by severity level.
+
+**Calculation:**
+```sql
+SELECT
+  JSON_VALUE(properties, '$.level') AS log_level,
+  COUNT(*) AS log_count,
+  COUNT(DISTINCT distinct_id) AS users_affected
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = 'log'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+  AND timestamp < CURRENT_TIMESTAMP()
+GROUP BY log_level
+ORDER BY log_count DESC
+```
+
+**Business Significance:**
+- Application health monitoring
+- Error trend analysis
+- Debug information aggregation
+- User impact assessment
+
+**Data Source:** PostHog `log` events
+
+**Log Level Interpretation:**
+- **Error:** Critical issues requiring immediate attention
+- **Warn:** Potential problems to monitor
+- **Info:** Normal operational messages
+- **Debug:** Development/troubleshooting information
+
+**Expected Distribution:**
+- Info: 60-80%
+- Debug: 10-20%
+- Warn: 5-10%
+- Error: <5%
+
+**Red Flags:**
+- **>20% errors:** Critical system issues
+- **Increasing warn rate:** Degrading stability
+- **No logs:** Logging system failure
+
+---
+
+### Overview Tab (PostHog Enhancements)
+
+#### 45. Total Exceptions (30 Days)
+**Definition:** Count of all JavaScript/application exceptions captured by PostHog.
+
+**Calculation:**
+```sql
+SELECT
+  DATE(timestamp) AS date,
+  COUNTIF(event = '$exception') AS exception_count,
+  COUNT(*) AS total_events,
+  ROUND(SAFE_DIVIDE(COUNTIF(event = '$exception'), COUNT(*)) * 100, 2) AS exception_rate_percent,
+  COUNT(DISTINCT distinct_id) AS total_users,
+  COUNT(DISTINCT IF(event = '$exception', distinct_id, NULL)) AS users_with_errors
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  AND timestamp < CURRENT_TIMESTAMP()
+GROUP BY date
+ORDER BY date DESC
+```
+
+**Business Significance:**
+- Frontend stability indicator
+- User experience quality metric
+- Code quality assessment
+- Release health monitoring
+
+**Data Source:** PostHog `$exception` events
+
+**Target Metrics:**
+- **Exception rate:** <0.1% of all events
+- **Users affected:** <5% of daily active users
+- **Trend:** Declining or stable
+
+**Interpretation:**
+- **Sudden spike:** New bug introduced (check recent deployments)
+- **Gradual increase:** Accumulating technical debt
+- **High user count:** Widespread issue affecting many users
+
+---
+
+#### 46. Average Exception Rate
+**Definition:** Mean percentage of events that are exceptions across all days.
+
+**Calculation:**
+```sql
+WITH daily_rates AS (
+  SELECT
+    DATE(timestamp) AS date,
+    ROUND(SAFE_DIVIDE(COUNTIF(event = '$exception'), COUNT(*)) * 100, 2) AS exception_rate_percent
+  FROM `gen-lang-client-0625543859.posthog.Events`
+  WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  GROUP BY date
+)
+SELECT ROUND(AVG(exception_rate_percent), 2) as avg_exception_rate
+FROM daily_rates
+```
+
+**Business Significance:**
+- Baseline stability metric
+- SLA target setting
+- Trend comparison baseline
+
+**Target:** <0.05% (5 exceptions per 10,000 events)
+
+---
+
+#### 47. Peak Exception Rate
+**Definition:** Highest single-day exception rate in the measurement period.
+
+**Calculation:**
+```sql
+SELECT MAX(exception_rate_percent) as peak_rate
+FROM (
+  SELECT
+    DATE(timestamp) AS date,
+    ROUND(SAFE_DIVIDE(COUNTIF(event = '$exception'), COUNT(*)) * 100, 2) AS exception_rate_percent
+  FROM `gen-lang-client-0625543859.posthog.Events`
+  WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  GROUP BY date
+)
+```
+
+**Business Significance:**
+- Worst-case scenario identification
+- Incident severity assessment
+- Recovery effectiveness validation
+
+**Alert Threshold:** >1% requires immediate investigation
+
+---
+
+#### 48. Users Affected by Errors
+**Definition:** Count of unique users who experienced at least one exception.
+
+**Calculation:**
+```sql
+SELECT COUNT(DISTINCT distinct_id) as users_with_errors
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$exception'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+```
+
+**Business Significance:**
+- User impact assessment
+- Prioritization metric (widespread vs. isolated issues)
+- Customer satisfaction indicator
+
+**Context Required:**
+- Compare to total active users
+- Calculate percentage affected
+- Track trend over time
+
+---
+
+#### 49. Error-Free Session Rate
+**Definition:** Percentage of user sessions with zero exceptions.
+
+**Calculation:**
+```sql
+WITH session_errors AS (
+  SELECT DISTINCT
+    JSON_VALUE(properties, '$."$session_id"') AS session_id
+  FROM `gen-lang-client-0625543859.posthog.Events`
+  WHERE event = '$exception'
+    AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+    AND timestamp < CURRENT_TIMESTAMP()
+    AND JSON_VALUE(properties, '$."$session_id"') IS NOT NULL
+),
+all_sessions AS (
+  SELECT DISTINCT
+    JSON_VALUE(properties, '$."$session_id"') AS session_id
+  FROM `gen-lang-client-0625543859.posthog.Events`
+  WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+    AND timestamp < CURRENT_TIMESTAMP()
+    AND JSON_VALUE(properties, '$."$session_id"') IS NOT NULL
+)
+SELECT
+  CURRENT_DATE() AS report_date,
+  COUNT(DISTINCT s.session_id) AS total_sessions,
+  COUNT(DISTINCT e.session_id) AS sessions_with_errors,
+  COUNT(DISTINCT s.session_id) - COUNT(DISTINCT e.session_id) AS error_free_sessions,
+  ROUND(
+    SAFE_DIVIDE(
+      COUNT(DISTINCT s.session_id) - COUNT(DISTINCT e.session_id),
+      COUNT(DISTINCT s.session_id)
+    ) * 100,
+    2
+  ) AS error_free_rate_percent
+FROM all_sessions s
+LEFT JOIN session_errors e ON s.session_id = e.session_id
+```
+
+**Business Significance:**
+- Primary user experience quality metric
+- SLA target for premium services
+- Session quality benchmark
+
+**Data Source:** PostHog session tracking + exceptions
+
+**SLA Target:** ≥95% error-free sessions
+
+**Interpretation:**
+- **≥99%:** Excellent - Most users have flawless experience
+- **95-99%:** Good - Meets SLA target
+- **90-95%:** Acceptable - Room for improvement
+- **<90%:** Poor - Urgent action required
+
+**Visualization:** Gauge chart with color-coded zones:
+- Green (95-100%): Meeting SLA
+- Orange (80-95%): Below SLA
+- Red (0-80%): Critical
+
+**Business Impact:**
+- **95% SLA:** Industry standard for stable platforms
+- **Below 95%:** User churn risk, negative reviews
+- **Improvement priority:** High-impact metric for user retention
+
+---
+
+### API Analytics Tab (PostHog Enhancements)
+
+#### 50. Rage Clicks - Total Count
+**Definition:** Number of rapid, repeated clicks in the same location indicating user frustration.
+
+**Calculation:**
+```sql
+SELECT
+  DATE(timestamp) AS date,
+  JSON_VALUE(properties, '$."$current_url"') AS page_url,
+  COUNT(*) AS rageclick_count,
+  COUNT(DISTINCT distinct_id) AS users_frustrated,
+  COUNT(DISTINCT JSON_VALUE(properties, '$."$session_id"')) AS sessions_with_rageclicks
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$rageclick'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  AND timestamp < CURRENT_TIMESTAMP()
+  AND JSON_VALUE(properties, '$."$session_id"') IS NOT NULL
+GROUP BY date, page_url
+ORDER BY rageclick_count DESC
+```
+
+**Business Significance:**
+- User frustration indicator
+- UX problem detection
+- Feature failure identification
+- Priority bug identification
+
+**Data Source:** PostHog `$rageclick` events (auto-captured)
+
+**Rage Click Definition:**
+- 3+ clicks within 1 second
+- On same element or close proximity
+- Indicates broken functionality or confusing UX
+
+**Interpretation:**
+- **High on specific page:** Broken feature or poor UX on that page
+- **Widespread:** General usability issues
+- **Correlated with errors:** Technical problems preventing actions
+
+**Action Priorities:**
+- **>100 rage clicks on one page:** Critical UX issue
+- **High user count:** Widespread impact - fix immediately
+- **New pages:** Design validation failure
+
+---
+
+#### 51. Frustrated Users Count
+**Definition:** Unique users who have performed rage clicks.
+
+**Calculation:**
+```sql
+SELECT COUNT(DISTINCT distinct_id) as frustrated_users
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$rageclick'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+```
+
+**Business Significance:**
+- User satisfaction proxy (inverse)
+- Churn risk indicator
+- Support ticket prediction
+
+**Context Required:**
+- Compare to total active users
+- Track over time
+- Correlate with retention
+
+---
+
+#### 52. Sessions Affected by Rage Clicks
+**Definition:** Count of sessions containing at least one rage click event.
+
+**Calculation:**
+```sql
+SELECT COUNT(DISTINCT JSON_VALUE(properties, '$."$session_id"')) as sessions_affected
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$rageclick'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  AND JSON_VALUE(properties, '$."$session_id"') IS NOT NULL
+```
+
+**Business Significance:**
+- Session quality metric
+- Frustration prevalence indicator
+- UX improvement prioritization
+
+**Target:** <2% of total sessions
+
+---
+
+#### 53. Most Problematic Pages (Rage Clicks)
+**Definition:** Pages ranked by total rage click count.
+
+**Calculation:**
+```sql
+SELECT
+  JSON_VALUE(properties, '$."$current_url"') AS page_url,
+  COUNT(*) AS total_rageclicks,
+  COUNT(DISTINCT distinct_id) AS unique_users,
+  COUNT(DISTINCT JSON_VALUE(properties, '$."$session_id"')) AS sessions_affected,
+  ROUND(COUNT(*) / COUNT(DISTINCT distinct_id), 2) AS avg_rageclicks_per_user
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$rageclick'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+GROUP BY page_url
+ORDER BY total_rageclicks DESC
+LIMIT 10
+```
+
+**Business Significance:**
+- UX optimization prioritization
+- Feature failure identification
+- Design iteration targeting
+
+**Visualization:** Horizontal bar chart colored by severity
+
+**Action Items:**
+- **Top 3 pages:** Immediate UX review and fix
+- **High avg per user:** Recurring frustration - critical fix
+- **New in top 10:** Recent deployment issue
+
+---
+
+#### 54. Error Distribution by Type
+**Definition:** Breakdown of exceptions by error type and message.
+
+**Calculation:**
+```sql
+SELECT
+  JSON_VALUE(properties, '$."$exception_type"') AS error_type,
+  JSON_VALUE(properties, '$."$exception_message"') AS error_message,
+  COUNT(*) AS occurrence_count,
+  COUNT(DISTINCT distinct_id) AS users_affected,
+  COUNT(DISTINCT JSON_VALUE(properties, '$."$session_id"')) AS sessions_affected
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$exception'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  AND timestamp < CURRENT_TIMESTAMP()
+GROUP BY error_type, error_message
+ORDER BY occurrence_count DESC
+LIMIT 20
+```
+
+**Business Significance:**
+- Bug prioritization
+- Root cause analysis
+- Code quality insights
+- Release impact assessment
+
+**Data Source:** PostHog `$exception` events with properties
+
+**Analysis Framework:**
+- **High occurrence + low user count:** Specific user/scenario issue
+- **High occurrence + high user count:** Widespread bug - critical fix
+- **Many different types:** Systemic code quality issue
+
+**Example Error Types:**
+- `TypeError`: Code attempting invalid operations
+- `ReferenceError`: Undefined variable access
+- `NetworkError`: API/connectivity failures
+- `SyntaxError`: Code compilation issues
+
+**Export Functionality:** CSV download for development team
+
+---
+
+#### 55. Top Error Messages
+**Definition:** Most common exception messages for debugging.
+
+**Calculation:**
+```sql
+SELECT
+  JSON_VALUE(properties, '$."$exception_message"') AS error_message,
+  JSON_VALUE(properties, '$."$exception_type"') AS error_type,
+  COUNT(*) AS count,
+  COUNT(DISTINCT distinct_id) AS users,
+  MIN(timestamp) AS first_seen,
+  MAX(timestamp) AS last_seen
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$exception'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+GROUP BY error_message, error_type
+ORDER BY count DESC
+LIMIT 10
+```
+
+**Business Significance:**
+- Direct debugging information
+- Pattern recognition
+- Regression detection
+
+**Use Cases:**
+- Share with development team
+- Create bug tickets
+- Track fix effectiveness
+
+---
+
+### Web Vitals Tab (NEW)
+
+#### 56. LCP - Largest Contentful Paint (Average)
+**Definition:** Time until the largest content element becomes visible.
+
+**Calculation:**
+```sql
+SELECT
+  DATE(timestamp) AS date,
+  ROUND(AVG(SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_LCP_value"') AS FLOAT64)) / 1000, 2) AS avg_lcp_seconds
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$web_vitals'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+  AND timestamp < CURRENT_TIMESTAMP()
+GROUP BY date
+ORDER BY date DESC
+```
+
+**Business Significance:**
+- Loading performance indicator
+- User perceived performance
+- Core Web Vital (Google ranking factor)
+- Mobile experience quality
+
+**Data Source:** PostHog `$web_vitals` events (auto-captured)
+
+**Performance Thresholds:**
+- **Good:** ≤2.5 seconds (green)
+- **Needs Improvement:** 2.5-4.0 seconds (yellow)
+- **Poor:** >4.0 seconds (red)
+
+**Target:** 75% of page loads should be "Good"
+
+**Interpretation:**
+- **Increasing LCP:** Performance degradation, investigate images/resources
+- **High mobile LCP:** Mobile optimization needed
+- **Specific pages slow:** Page-specific optimization required
+
+**Optimization Strategies:**
+- Optimize images (compression, lazy loading)
+- Reduce server response time
+- Implement caching
+- Use CDN for static assets
+
+---
+
+#### 57. FCP - First Contentful Paint (Average)
+**Definition:** Time until first text or image appears on screen.
+
+**Calculation:**
+```sql
+SELECT
+  DATE(timestamp) AS date,
+  ROUND(AVG(SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_FCP_value"') AS FLOAT64)) / 1000, 2) AS avg_fcp_seconds
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$web_vitals'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+GROUP BY date
+ORDER BY date DESC
+```
+
+**Business Significance:**
+- Initial load experience
+- User engagement indicator
+- Bounce rate correlation
+
+**Performance Thresholds:**
+- **Good:** ≤1.8 seconds
+- **Needs Improvement:** 1.8-3.0 seconds
+- **Poor:** >3.0 seconds
+
+**Target:** 75% of page loads under 1.8s
+
+---
+
+#### 58. INP - Interaction to Next Paint (Average)
+**Definition:** Time from user interaction to visual response.
+
+**Calculation:**
+```sql
+SELECT
+  DATE(timestamp) AS date,
+  ROUND(AVG(SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_INP_value"') AS FLOAT64)), 2) AS avg_inp_ms
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$web_vitals'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+GROUP BY date
+ORDER BY date DESC
+```
+
+**Business Significance:**
+- Interactivity responsiveness
+- User experience during interaction
+- Replaces FID (First Input Delay)
+
+**Performance Thresholds:**
+- **Good:** ≤200 milliseconds
+- **Needs Improvement:** 200-500 milliseconds
+- **Poor:** >500 milliseconds
+
+**Target:** 75% of interactions under 200ms
+
+**Common Causes of Poor INP:**
+- Heavy JavaScript execution
+- Long-running tasks
+- Inefficient event handlers
+- Layout thrashing
+
+---
+
+#### 59. CLS - Cumulative Layout Shift (Average)
+**Definition:** Visual stability score - measures unexpected layout shifts.
+
+**Calculation:**
+```sql
+SELECT
+  DATE(timestamp) AS date,
+  ROUND(AVG(SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_CLS_value"') AS FLOAT64)), 3) AS avg_cls_score
+FROM `gen-lang-client-0625543859.posthog.Events`
+WHERE event = '$web_vitals'
+  AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+GROUP BY date
+ORDER BY date DESC
+```
+
+**Business Significance:**
+- Visual stability during load
+- Prevents accidental clicks
+- User frustration prevention
+
+**Performance Thresholds:**
+- **Good:** ≤0.1 (unitless score)
+- **Needs Improvement:** 0.1-0.25
+- **Poor:** >0.25
+
+**Target:** 75% of page loads under 0.1
+
+**Common Causes:**
+- Images without dimensions
+- Dynamic content injection
+- Web fonts loading
+- Ads without reserved space
+
+---
+
+#### 60. Web Vitals - Good/Needs Improvement/Poor Distribution
+**Definition:** Percentage of page loads in each performance category.
+
+**Calculation:**
+```sql
+WITH base AS (
+  SELECT
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_LCP_value"') AS FLOAT64) / 1000 AS lcp_seconds,
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_FCP_value"') AS FLOAT64) / 1000 AS fcp_seconds,
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_INP_value"') AS FLOAT64) AS inp_ms,
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_CLS_value"') AS FLOAT64) AS cls_score
+  FROM `gen-lang-client-0625543859.posthog.Events`
+  WHERE event = '$web_vitals'
+    AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+)
+SELECT
+  COUNTIF(lcp_seconds <= 2.5) AS lcp_good,
+  COUNTIF(lcp_seconds > 2.5 AND lcp_seconds <= 4.0) AS lcp_needs_improvement,
+  COUNTIF(lcp_seconds > 4.0) AS lcp_poor,
+  -- Similar for FCP, INP, CLS
+FROM base
+```
+
+**Business Significance:**
+- Performance distribution visibility
+- Google Core Web Vitals pass rate
+- Optimization impact measurement
+
+**Visualization:** Stacked bar chart (green/yellow/red)
+
+**Google Requirement:** ≥75% "Good" for all metrics
+
+**Use Cases:**
+- SEO performance tracking
+- User experience benchmarking
+- Infrastructure adequacy validation
+- Release performance comparison
+
+---
+
+#### 61. Web Vitals Percentiles (P50, P75, P95, P99)
+**Definition:** Performance distribution across percentiles for each vital.
+
+**Calculation:**
+```sql
+WITH base AS (
+  SELECT
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_LCP_value"') AS FLOAT64) / 1000.0 AS lcp_seconds,
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_FCP_value"') AS FLOAT64) / 1000.0 AS fcp_seconds,
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_INP_value"') AS FLOAT64) AS inp_ms,
+    SAFE_CAST(JSON_VALUE(properties, '$."$web_vitals_CLS_value"') AS FLOAT64) AS cls_score
+  FROM `gen-lang-client-0625543859.posthog.Events`
+  WHERE event = '$web_vitals'
+    AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 30 DAY)
+)
+SELECT
+  'LCP' AS metric,
+  ROUND(APPROX_QUANTILES(lcp_seconds, 100)[OFFSET(50)], 2) AS p50,
+  ROUND(APPROX_QUANTILES(lcp_seconds, 100)[OFFSET(75)], 2) AS p75,
+  ROUND(APPROX_QUANTILES(lcp_seconds, 100)[OFFSET(95)], 2) AS p95,
+  ROUND(APPROX_QUANTILES(lcp_seconds, 100)[OFFSET(99)], 2) AS p99
+FROM base
+```
+
+**Business Significance:**
+- Tail latency visibility
+- Worst-case performance
+- Infrastructure bottleneck identification
+
+**Interpretation:**
+- **P50 (Median):** Typical user experience
+- **P75:** Above-average scenario
+- **P95:** Challenging conditions (slow network, older devices)
+- **P99:** Worst 1% - edge cases
+
+**Target Focus:** Optimize P95 (affects 5% of users) while maintaining P50
+
+---
+
+## Summary of New PostHog Metrics
+
+### Total New Metrics Added: 20
+
+**Overview Tab Enhancements:**
+- Exception tracking (5 metrics)
+- Session quality (1 metric)
+
+**API Analytics Tab Enhancements:**
+- Rage clicks (4 metrics)
+- Error distribution (2 metrics)
+
+**Telemetry Tab Enhancements:**
+- Network connectivity (1 metric)
+- Application logs (1 metric)
+
+**New Web Vitals Tab:**
+- Core Web Vitals (6 metrics)
+
+**Business Value:**
+- **User Experience:** Rage clicks, session quality, Web Vitals
+- **Stability:** Exception tracking, error distribution
+- **Infrastructure:** Network connectivity, application logs
+- **SEO:** Core Web Vitals compliance
+
+**Data Source:** All metrics use PostHog Events table (`gen-lang-client-0625543859.posthog.Events`)
+
+**Implementation Status:** ✅ Fully integrated into Developer Dashboard v2.0
+
+---
+
 ## Faculty Dashboard Metrics
 
 ### Overview Tab
@@ -2772,8 +3489,8 @@ FROM this_year, last_year
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** December 28, 2024  
-**Total Metrics Documented:** 93 (current) + extensive future metrics
+**Document Version:** 2.0 - Enhanced with PostHog Metrics  
+**Last Updated:** January 7, 2026  
+**Total Metrics Documented:** 113 (93 original + 20 PostHog metrics) + extensive future metrics
 
 This document serves as the definitive reference for all analytics metrics in the MIND Platform, providing technical teams, educators, and administrators with comprehensive understanding of what is measured, how it's calculated, and why it matters.
