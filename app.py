@@ -23,31 +23,18 @@ if 'theme' not in st.session_state:
 
 initialize_session_state()
 
-# Global CSS (works for both themes)
+# Global CSS
 st.markdown("""
     <style>
-    /* Hide default Streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     section[data-testid="stSidebarNav"] {display: none;}
     
-    /* Container styling */
     .block-container {
         padding-top: 2rem;
         padding-bottom: 2rem;
     }
     
-    /* Login form styling */
-    .login-container {
-        max-width: 450px;
-        margin: 50px auto;
-        padding: 40px;
-        background-color: #262730;
-        border-radius: 12px;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-    }
-    
-    /* Custom scrollbar */
     ::-webkit-scrollbar {
         width: 10px;
         height: 10px;
@@ -81,9 +68,6 @@ if st.session_state.theme == 'light':
         }
         .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
             color: #262730 !important;
-        }
-        .login-container {
-            background-color: #f0f2f6 !important;
         }
         input, textarea, select {
             background-color: #ffffff !important;
@@ -132,7 +116,6 @@ else:
 
 # Sidebar
 with st.sidebar:
-    # Theme toggle
     col1, col2 = st.columns([3, 1])
     with col2:
         if st.session_state.theme == 'dark':
@@ -144,7 +127,6 @@ with st.sidebar:
                 st.session_state.theme = 'dark'
                 st.rerun()
     
-    # Display theme-aware logo
     try:
         if st.session_state.theme == 'dark':
             logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
@@ -165,7 +147,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Show user info if authenticated
     if st.session_state.get('authenticated', False):
         st.markdown(f"**👤 {st.session_state.user_name}**")
         st.markdown(f"*{st.session_state.user_role.title()}*")
@@ -177,7 +158,6 @@ with st.sidebar:
             logout()
             st.rerun()
     else:
-        # Show info for non-authenticated users
         st.markdown("### 📊 MIND Platform")
         st.markdown("AI-Enhanced Educational Analytics Dashboard")
         
@@ -195,16 +175,13 @@ with st.sidebar:
         👩🏿‍🏫 **Faculty**  
         Student analytics & outcomes
         
-        👨🏿‍🎓 **Student**  
+        🎓 **Student**  
         Personal learning journey
         """)
 
-# Main Content Area
+# Main Content
 if not st.session_state.get('authenticated', False):
-    # ==========================================
     # LOGIN PAGE
-    # ==========================================
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
@@ -230,7 +207,6 @@ if not st.session_state.get('authenticated', False):
                 else:
                     st.error("❌ Invalid email or password")
     
-    # Footer
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #888; padding: 20px;'>
@@ -243,14 +219,10 @@ if not st.session_state.get('authenticated', False):
     """, unsafe_allow_html=True)
 
 else:
-    # ==========================================
-    # DASHBOARD PORTAL (After Login)
-    # ==========================================
-    
+    # DASHBOARD PORTAL
     user_role = st.session_state.user_role
     user_name = st.session_state.user_name
     
-    # Welcome section
     st.markdown(f"""
         <div style="text-align: center; margin-bottom: 3rem;">
             <h1>Welcome back, {user_name}! 👋</h1>
@@ -261,29 +233,16 @@ else:
     """, unsafe_allow_html=True)
     
     st.markdown("---")
-    
-    # Dashboard selection cards
     st.markdown("### 📊 Your Available Dashboards")
     st.markdown("")
-    
-    # Define page paths safely
-    page_paths = {
-        'admin': "pages/1_👨🏿‍💼_Admin.py",
-        'developer': "pages/2_👨🏿‍💻_Developer.py",
-        'faculty': "pages/3_👩🏿‍🏫_Faculty.py",
-        'student': "pages/4_👨🏿‍🎓_Student.py"
-    }
     
     # Admin Dashboard
     if can_access_page(user_role, 'Admin'):
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             if st.button("👨🏿‍💼 Administrator Dashboard\n\nSystem Health • User Analytics • AI Resources • Platform Configuration", 
-                        use_container_width=True, key="nav_admin", help="Manage system health and platform configuration"):
-                try:
-                    st.switch_page(page_paths['admin'])
-                except Exception as e:
-                    st.error(f"Navigation error. Please use the sidebar to access the Admin dashboard.")
+                        use_container_width=True, key="nav_admin"):
+                st.switch_page("pages/1_👨🏿‍💼_Admin.py")
             st.markdown("<br>", unsafe_allow_html=True)
     
     # Developer Dashboard
@@ -291,11 +250,8 @@ else:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             if st.button("👨🏿‍💻 Developer Dashboard\n\nAPI Performance • Error Tracking • Backend Telemetry • Web Vitals", 
-                        use_container_width=True, key="nav_dev", help="Monitor technical performance and debug issues"):
-                try:
-                    st.switch_page(page_paths['developer'])
-                except Exception as e:
-                    st.error(f"Navigation error. Please use the sidebar to access the Developer dashboard.")
+                        use_container_width=True, key="nav_dev"):
+                st.switch_page("pages/2_👨🏿‍💻_Developer.py")
             st.markdown("<br>", unsafe_allow_html=True)
     
     # Faculty Dashboard
@@ -303,28 +259,21 @@ else:
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             if st.button("👩🏿‍🏫 Faculty Dashboard\n\nStudent Performance • Case Study Analytics • At-Risk Students • Progress Tracking", 
-                        use_container_width=True, key="nav_faculty", help="Track student performance and learning outcomes"):
-                try:
-                    st.switch_page(page_paths['faculty'])
-                except Exception as e:
-                    st.error(f"Navigation error. Please use the sidebar to access the Faculty dashboard.")
+                        use_container_width=True, key="nav_faculty"):
+                st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
             st.markdown("<br>", unsafe_allow_html=True)
     
-    # Student Dashboard
+    # Student Dashboard - FIXED: Using simpler emoji path
     if can_access_page(user_role, 'Student'):
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            if st.button("👨🏿‍🎓 Student Dashboard\n\nLearning Journey • Performance Tracking • Progress Visualization • Achievements", 
-                        use_container_width=True, key="nav_student", help="View your personal learning journey and progress"):
-                try:
-                    st.switch_page(page_paths['student'])
-                except Exception as e:
-                    st.error(f"Navigation error. Please use the sidebar to access the Student dashboard.")
+            if st.button("🎓 Student Dashboard\n\nLearning Journey • Performance Tracking • Progress Visualization • Achievements", 
+                        use_container_width=True, key="nav_student"):
+                st.switch_page("pages/4_🎓_Student.py")
             st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # Quick stats or tips section
     col1, col2, col3 = st.columns(3)
     
     with col1:
@@ -345,7 +294,6 @@ else:
         Your session is secure. Remember to logout when done.
         """)
     
-    # Footer
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #888; padding: 20px;'>
