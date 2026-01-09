@@ -74,11 +74,10 @@ def logout():
 def require_authentication():
     """
     Decorator/helper to require authentication
-    Redirects to login if not authenticated
+    Redirects to home page (login) if not authenticated
     """
     if not st.session_state.get('authenticated', False):
-        st.warning("⚠️ Please login to access this page")
-        st.stop()
+        st.switch_page("app.py")
 
 
 def get_current_user():
