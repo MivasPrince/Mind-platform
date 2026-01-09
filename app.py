@@ -266,13 +266,24 @@ else:
     st.markdown("### 📊 Your Available Dashboards")
     st.markdown("")
     
+    # Define page paths safely
+    page_paths = {
+        'admin': "pages/1_👨🏿‍💼_Admin.py",
+        'developer': "pages/2_👨🏿‍💻_Developer.py",
+        'faculty': "pages/3_👩🏿‍🏫_Faculty.py",
+        'student': "pages/4_👨🏿‍🎓_Student.py"
+    }
+    
     # Admin Dashboard
     if can_access_page(user_role, 'Admin'):
         col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
             if st.button("👨🏿‍💼 Administrator Dashboard\n\nSystem Health • User Analytics • AI Resources • Platform Configuration", 
                         use_container_width=True, key="nav_admin", help="Manage system health and platform configuration"):
-                st.switch_page("pages/1_👨🏿‍💼_Admin.py")
+                try:
+                    st.switch_page(page_paths['admin'])
+                except Exception as e:
+                    st.error(f"Navigation error. Please use the sidebar to access the Admin dashboard.")
             st.markdown("<br>", unsafe_allow_html=True)
     
     # Developer Dashboard
@@ -281,7 +292,10 @@ else:
         with col2:
             if st.button("👨🏿‍💻 Developer Dashboard\n\nAPI Performance • Error Tracking • Backend Telemetry • Web Vitals", 
                         use_container_width=True, key="nav_dev", help="Monitor technical performance and debug issues"):
-                st.switch_page("pages/2_👨🏿‍💻_Developer.py")
+                try:
+                    st.switch_page(page_paths['developer'])
+                except Exception as e:
+                    st.error(f"Navigation error. Please use the sidebar to access the Developer dashboard.")
             st.markdown("<br>", unsafe_allow_html=True)
     
     # Faculty Dashboard
@@ -290,7 +304,10 @@ else:
         with col2:
             if st.button("👩🏿‍🏫 Faculty Dashboard\n\nStudent Performance • Case Study Analytics • At-Risk Students • Progress Tracking", 
                         use_container_width=True, key="nav_faculty", help="Track student performance and learning outcomes"):
-                st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
+                try:
+                    st.switch_page(page_paths['faculty'])
+                except Exception as e:
+                    st.error(f"Navigation error. Please use the sidebar to access the Faculty dashboard.")
             st.markdown("<br>", unsafe_allow_html=True)
     
     # Student Dashboard
@@ -299,7 +316,10 @@ else:
         with col2:
             if st.button("👨🏿‍🎓 Student Dashboard\n\nLearning Journey • Performance Tracking • Progress Visualization • Achievements", 
                         use_container_width=True, key="nav_student", help="View your personal learning journey and progress"):
-                st.switch_page("pages/4_👨🏿‍🎓_Student.py")
+                try:
+                    st.switch_page(page_paths['student'])
+                except Exception as e:
+                    st.error(f"Navigation error. Please use the sidebar to access the Student dashboard.")
             st.markdown("<br>", unsafe_allow_html=True)
     
     st.markdown("---")
