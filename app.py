@@ -1,11 +1,13 @@
 """
 MIND Platform - Educational Analytics Dashboard
-Main Application Entry Point
+Main Portal & Authentication Page
 """
 
 import streamlit as st
-from utils.auth_handler import initialize_session_state, show_login_page, show_user_info_sidebar
+from utils.auth_handler import initialize_session_state, login, logout
 from config.auth import can_access_page
+import base64
+import os
 
 # Page configuration
 st.set_page_config(
@@ -15,15 +17,61 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Initialize theme if not set
+# Initialize theme and session
 if 'theme' not in st.session_state:
     st.session_state.theme = 'dark'
 
-# Apply theme-specific CSS
+initialize_session_state()
+
+# Global CSS (works for both themes)
+st.markdown("""
+    <style>
+    /* Hide default Streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    section[data-testid="stSidebarNav"] {display: none;}
+    
+    /* Container styling */
+    .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    
+    /* Login form styling */
+    .login-container {
+        max-width: 450px;
+        margin: 50px auto;
+        padding: 40px;
+        background-color: #262730;
+        border-radius: 12px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: #262730;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: #FF6B6B;
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: #ff5252;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Theme-specific CSS
 if st.session_state.theme == 'light':
     st.markdown("""
         <style>
-        /* Light theme */
         .stApp {
             background-color: #ffffff;
             color: #262730 !important;
@@ -31,97 +79,22 @@ if st.session_state.theme == 'light':
         .stSidebar, section[data-testid="stSidebar"] {
             background-color: #f0f2f6;
         }
-        /* Force dark text in light mode */
         .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
             color: #262730 !important;
         }
-        
-        /* Main container styling */
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
+        .login-container {
+            background-color: #f0f2f6 !important;
         }
-        
-        /* Metric cards */
-        [data-testid="stMetricValue"] {
-            font-size: 2rem;
-            font-weight: 600;
-        }
-        
-        [data-testid="stMetricDelta"] {
-            font-size: 1rem;
-        }
-        
-        /* Headers */
-        h1 {
-            color: #e63946 !important;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #e63946;
-        }
-        
-        h2 {
-            color: #457b9d !important;
-            margin-top: 2rem;
-        }
-        
-        h3 {
-            color: #1d3557 !important;
-        }
-        
-        /* Cards and containers */
-        .stAlert {
-            border-radius: 10px;
-        }
-        
-        /* Buttons */
-        .stButton>button {
-            border-radius: 8px;
-            border: 1px solid #e63946;
-            transition: all 0.3s;
+        input, textarea, select {
+            background-color: #ffffff !important;
             color: #262730 !important;
-        }
-        
-        .stButton>button:hover {
-            background-color: #e63946;
-            color: white !important;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(230, 57, 70, 0.3);
-        }
-        
-        /* DataFrames */
-        .dataframe {
-            border-radius: 8px;
-        }
-        
-        /* Hide hamburger menu, footer, and default navigation */
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        section[data-testid="stSidebarNav"] {display: none;}
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #e0e0e0;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #e63946;
-            border-radius: 5px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #c7313a;
+            border: 1px solid #cccccc !important;
         }
         </style>
     """, unsafe_allow_html=True)
 else:
     st.markdown("""
         <style>
-        /* Dark theme (default) */
         .stApp {
             background-color: #0e1117;
             color: #fafafa !important;
@@ -129,40 +102,21 @@ else:
         .stSidebar, section[data-testid="stSidebar"] {
             background-color: #262730;
         }
-        /* Force white text on all elements in dark mode */
         .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
             color: #fafafa !important;
         }
-        /* Headers specifically */
-        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
-        .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
-            color: #ffffff !important;
-        }
-        /* Metric labels and values */
-        div[data-testid="stMetric"] label,
-        div[data-testid="stMetric"] div {
-            color: #fafafa !important;
-        }
-        /* Button text */
-        .stButton>button {
-            color: #fafafa !important;
-        }
-        /* Input fields - dark backgrounds with white text */
         input, textarea, select {
             background-color: #262730 !important;
             color: #fafafa !important;
             border: 1px solid #4a4a4a !important;
         }
-        /* Input placeholders */
         input::placeholder, textarea::placeholder {
             color: #999999 !important;
         }
-        /* Selectbox dropdown */
         div[data-baseweb="select"] > div {
             background-color: #262730 !important;
             color: #fafafa !important;
         }
-        /* Selectbox options */
         div[role="listbox"] {
             background-color: #262730 !important;
         }
@@ -173,141 +127,30 @@ else:
         div[role="option"]:hover {
             background-color: #3a3a3a !important;
         }
-        /* Date/Time inputs */
-        .stDateInput > div > div > input,
-        .stTimeInput > div > div > input {
-            background-color: #262730 !important;
-            color: #fafafa !important;
-        }
-        /* Number inputs */
-        .stNumberInput > div > div > input {
-            background-color: #262730 !important;
-            color: #fafafa !important;
-        }
-        /* Text area */
-        .stTextArea > div > div > textarea {
-            background-color: #262730 !important;
-            color: #fafafa !important;
-        }
-        /* Multiselect */
-        .stMultiSelect > div > div {
-            background-color: #262730 !important;
-            color: #fafafa !important;
-        }
-        /* Slider labels */
-        .stSlider > label {
-            color: #fafafa !important;
-        }
-        
-        /* Main container styling */
-        .block-container {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
-        }
-        
-        /* Metric cards */
-        [data-testid="stMetricValue"] {
-            font-size: 2rem;
-            font-weight: 600;
-        }
-        
-        [data-testid="stMetricDelta"] {
-            font-size: 1rem;
-        }
-        
-        /* Headers */
-        h1 {
-            color: #FF6B6B !important;
-            padding-bottom: 1rem;
-            border-bottom: 2px solid #FF6B6B;
-        }
-        
-        h2 {
-            color: #4ECDC4 !important;
-            margin-top: 2rem;
-        }
-        
-        h3 {
-            color: #45B7D1 !important;
-        }
-        
-        /* Cards and containers */
-        .stAlert {
-            border-radius: 10px;
-        }
-        
-        /* Buttons */
-        .stButton>button {
-            border-radius: 8px;
-            border: 1px solid #FF6B6B;
-            transition: all 0.3s;
-        }
-        
-        .stButton>button:hover {
-            background-color: #FF6B6B;
-            color: white !important;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(255, 107, 107, 0.3);
-        }
-        
-        /* DataFrames */
-        .dataframe {
-            border-radius: 8px;
-        }
-        
-        /* Hide hamburger menu, footer, and default navigation */
-        #MainMenu {visibility: hidden;}
-        footer {visibility: hidden;}
-        section[data-testid="stSidebarNav"] {display: none;}
-        
-        /* Custom scrollbar */
-        ::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-        
-        ::-webkit-scrollbar-track {
-            background: #262730;
-        }
-        
-        ::-webkit-scrollbar-thumb {
-            background: #FF6B6B;
-            border-radius: 5px;
-        }
-        
-        ::-webkit-scrollbar-thumb:hover {
-            background: #ff5252;
-        }
         </style>
     """, unsafe_allow_html=True)
 
-# Initialize session state
-initialize_session_state()
-
-# ALWAYS show sidebar with role cards (whether logged in or not)
+# Sidebar
 with st.sidebar:
-    import base64
-    
-    # Theme toggle at top of sidebar
+    # Theme toggle
     col1, col2 = st.columns([3, 1])
     with col2:
-        if st.session_state.get('theme', 'dark') == 'dark':
-            if st.button("☀️", help="Switch to light mode", key="sidebar_theme_toggle"):
+        if st.session_state.theme == 'dark':
+            if st.button("☀️", help="Switch to light mode", key="theme_toggle"):
                 st.session_state.theme = 'light'
                 st.rerun()
         else:
-            if st.button("🌙", help="Switch to dark mode", key="sidebar_theme_toggle"):
+            if st.button("🌙", help="Switch to dark mode", key="theme_toggle"):
                 st.session_state.theme = 'dark'
                 st.rerun()
     
-    # Display theme-aware MIVA logo
+    # Display theme-aware logo
     try:
-        if st.session_state.get('theme', 'dark') == 'dark':
+        if st.session_state.theme == 'dark':
             logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
         else:
             logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
         
-        import os
         if os.path.exists(logo_path):
             with open(logo_path, "rb") as f:
                 logo_b64 = base64.b64encode(f.read()).decode()
@@ -318,116 +161,60 @@ with st.sidebar:
                 </div>
             """, unsafe_allow_html=True)
     except:
-        pass
+        st.markdown("# 🧠 MIND")
     
     st.markdown("---")
     
-    # Show user info if authenticated, otherwise show role selection
+    # Show user info if authenticated
     if st.session_state.get('authenticated', False):
         st.markdown(f"**👤 {st.session_state.user_name}**")
         st.markdown(f"*{st.session_state.user_role.title()}*")
         st.markdown(f"📧 {st.session_state.user_email}")
         
         st.markdown("---")
-        st.markdown("### 📊 Dashboards")
-        
-        # Show available dashboards based on role
-        user_role = st.session_state.user_role
-        
-        if can_access_page(user_role, 'Admin'):
-            if st.button("👨🏿‍💼 Admin", use_container_width=True, key="nav_admin"):
-                st.switch_page("pages/1_👨🏿‍💼_Admin.py")
-        
-        if can_access_page(user_role, 'Developer'):
-            if st.button("👨🏿‍💻 Developer", use_container_width=True, key="nav_dev"):
-                st.switch_page("pages/2_👨🏿‍💻_Developer.py")
-        
-        if can_access_page(user_role, 'Faculty'):
-            if st.button("👩🏿‍🏫 Faculty", use_container_width=True, key="nav_faculty"):
-                st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
-        
-        if can_access_page(user_role, 'Student'):
-            if st.button("👨🏿‍🎓 Student", use_container_width=True, key="nav_student"):
-                st.switch_page("pages/4_👨🏿‍🎓_Student.py")
-        
-        st.markdown("---")
         
         if st.button("🚪 Logout", use_container_width=True):
-            from utils.auth_handler import logout
             logout()
             st.rerun()
     else:
-        # Show role descriptions for non-authenticated users (informational only)
-        st.markdown("### 📊 Dashboard Roles")
-        st.markdown("*Login to access dashboards*")
-        
-        st.markdown("---")
-        
-        # Role descriptions (non-clickable)
-        st.markdown("""
-        **👨🏿‍💼 Administrator**  
-        • System health monitoring  
-        • User analytics  
-        • AI resource tracking  
-        • Platform configuration
-        """)
+        # Show info for non-authenticated users
+        st.markdown("### 📊 MIND Platform")
+        st.markdown("AI-Enhanced Educational Analytics Dashboard")
         
         st.markdown("---")
         
         st.markdown("""
-        **👨🏿‍💻 Developer**  
-        • API performance metrics  
-        • Error tracking & debugging  
-        • Backend telemetry  
-        • Web vitals monitoring
-        """)
+        **Four Specialized Dashboards:**
         
-        st.markdown("---")
+        👨🏿‍💼 **Admin**  
+        System oversight & governance
         
-        st.markdown("""
-        **👩🏿‍🏫 Faculty**  
-        • Student performance  
-        • Case study analytics  
-        • At-risk identification  
-        • Cohort comparisons
-        """)
+        👨🏿‍💻 **Developer**  
+        Technical performance & debugging
         
-        st.markdown("---")
+        👩🏿‍🏫 **Faculty**  
+        Student analytics & outcomes
         
-        st.markdown("""
-        **👨🏿‍🎓 Student**  
-        • Learning journey  
-        • Performance tracking  
-        • Progress visualization  
-        • Achievement badges
+        👨🏿‍🎓 **Student**  
+        Personal learning journey
         """)
 
-# Main content area - Show login if not authenticated
+# Main Content Area
 if not st.session_state.get('authenticated', False):
-    # Login page (centered)
-    st.markdown("""
-        <style>
-        .login-container {
-            max-width: 450px;
-            margin: 50px auto;
-            padding: 40px;
-            background-color: #262730;
-            border-radius: 12px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
-        }
-        .dashboard-title {
-            text-align: center;
-            margin-bottom: 2rem;
-            font-size: 2rem;
-            font-weight: 600;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    # ==========================================
+    # LOGIN PAGE
+    # ==========================================
     
     col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        st.markdown('<div class="dashboard-title">MIND Analytics Dashboard</div>', unsafe_allow_html=True)
+        st.markdown("""
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="margin-bottom: 0.5rem;">MIND Analytics Dashboard</h1>
+                <p style="font-size: 1.2rem; opacity: 0.8;">AI-Enhanced Educational Analytics</p>
+            </div>
+        """, unsafe_allow_html=True)
+        
         st.markdown("### 🔐 Login to Continue")
         st.markdown("---")
         
@@ -437,7 +224,6 @@ if not st.session_state.get('authenticated', False):
             submit = st.form_submit_button("Login", use_container_width=True)
             
             if submit:
-                from utils.auth_handler import login
                 if login(email, password):
                     st.success(f"✅ Welcome, {st.session_state.user_name}!")
                     st.rerun()
@@ -446,52 +232,122 @@ if not st.session_state.get('authenticated', False):
         
         st.markdown("---")
         
-        # Demo credentials info
+        # Demo credentials
         with st.expander("📝 Demo Credentials"):
             st.markdown("""
             **Admin:**  
-            📧 admin@miva.edu  
-            🔑 admin123
+            📧 `admin@miva.edu` | 🔑 `admin123`
             
             **Developer:**  
-            📧 dev@miva.edu  
-            🔑 dev123
+            📧 `dev@miva.edu` | 🔑 `dev123`
             
             **Faculty:**  
-            📧 faculty@miva.edu  
-            🔑 faculty123
+            📧 `faculty@miva.edu` | 🔑 `faculty123`
             
             **Student:**  
-            📧 student@miva.edu  
-            🔑 student123
+            📧 `student@miva.edu` | 🔑 `student123`
             """)
     
     # Footer
     st.markdown("---")
     st.markdown("""
         <div style='text-align: center; color: #888; padding: 20px;'>
-            <p>MIND Platform v2.0 | AI-Enhanced Educational Analytics</p>
+            <p><strong>MIND Platform v2.0</strong></p>
             <p>Powered by BigQuery, Streamlit & Plotly</p>
+            <p style="font-size: 0.9rem; margin-top: 1rem;">
+                MIVA Open University | Educational Analytics Dashboard
+            </p>
         </div>
     """, unsafe_allow_html=True)
+
 else:
-    # User is authenticated - redirect to their default dashboard
-    user_role = st.session_state.get('user_role', 'student')
+    # ==========================================
+    # DASHBOARD PORTAL (After Login)
+    # ==========================================
     
-    st.markdown("### 🎉 Login Successful!")
-    st.markdown(f"Welcome back, **{st.session_state.user_name}**!")
+    user_role = st.session_state.user_role
+    user_name = st.session_state.user_name
+    
+    # Welcome section
+    st.markdown(f"""
+        <div style="text-align: center; margin-bottom: 3rem;">
+            <h1>Welcome back, {user_name}! 👋</h1>
+            <p style="font-size: 1.2rem; opacity: 0.8;">
+                Select a dashboard to begin your analytics journey
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
     
     st.markdown("---")
     
-    # Auto-redirect message
-    st.info(f"Redirecting you to your {user_role.title()} Dashboard...")
+    # Dashboard selection cards
+    st.markdown("### 📊 Your Available Dashboards")
+    st.markdown("")
     
-    # Role-specific redirect
-    if user_role == 'admin':
-        st.switch_page("pages/1_👨🏿‍💼_Admin.py")
-    elif user_role == 'developer':
-        st.switch_page("pages/2_👨🏿‍💻_Developer.py")
-    elif user_role == 'faculty':
-        st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
-    else:  # student
-        st.switch_page("pages/4_👨🏿‍🎓_Student.py")
+    # Admin Dashboard
+    if can_access_page(user_role, 'Admin'):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("👨🏿‍💼 Administrator Dashboard\n\nSystem Health • User Analytics • AI Resources • Platform Configuration", 
+                        use_container_width=True, key="nav_admin", help="Manage system health and platform configuration"):
+                st.switch_page("pages/1_👨🏿‍💼_Admin.py")
+            st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Developer Dashboard
+    if can_access_page(user_role, 'Developer'):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("👨🏿‍💻 Developer Dashboard\n\nAPI Performance • Error Tracking • Backend Telemetry • Web Vitals", 
+                        use_container_width=True, key="nav_dev", help="Monitor technical performance and debug issues"):
+                st.switch_page("pages/2_👨🏿‍💻_Developer.py")
+            st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Faculty Dashboard
+    if can_access_page(user_role, 'Faculty'):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("👩🏿‍🏫 Faculty Dashboard\n\nStudent Performance • Case Study Analytics • At-Risk Students • Progress Tracking", 
+                        use_container_width=True, key="nav_faculty", help="Track student performance and learning outcomes"):
+                st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
+            st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Student Dashboard
+    if can_access_page(user_role, 'Student'):
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col2:
+            if st.button("👨🏿‍🎓 Student Dashboard\n\nLearning Journey • Performance Tracking • Progress Visualization • Achievements", 
+                        use_container_width=True, key="nav_student", help="View your personal learning journey and progress"):
+                st.switch_page("pages/4_👨🏿‍🎓_Student.py")
+            st.markdown("<br>", unsafe_allow_html=True)
+    
+    st.markdown("---")
+    
+    # Quick stats or tips section
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+        st.info("""
+        **💡 Quick Tip**  
+        Use the sidebar to quickly navigate between dashboards after selecting one.
+        """)
+    
+    with col2:
+        st.info(f"""
+        **🎯 Your Role**  
+        You have **{user_role.title()}** level access with specialized analytics.
+        """)
+    
+    with col3:
+        st.info("""
+        **🔐 Security**  
+        Your session is secure. Remember to logout when done.
+        """)
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("""
+        <div style='text-align: center; color: #888; padding: 20px;'>
+            <p><strong>MIND Platform v2.0</strong></p>
+            <p>AI-Enhanced Educational Analytics Dashboard</p>
+        </div>
+    """, unsafe_allow_html=True)
