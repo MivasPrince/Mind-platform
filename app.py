@@ -10,7 +10,7 @@ from config.auth import can_access_page
 # Page configuration
 st.set_page_config(
     page_title="MIVA - MIND Platform",
-    page_icon="assets/miva_logo_dark.png",  # Will show in browser tab
+    page_icon="assets/miva_logo_dark.png",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -93,9 +93,10 @@ if st.session_state.theme == 'light':
             border-radius: 8px;
         }
         
-        /* Hide hamburger menu and footer */
+        /* Hide hamburger menu, footer, and default navigation */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        section[data-testid="stSidebarNav"] {display: none;}
         
         /* Custom scrollbar */
         ::-webkit-scrollbar {
@@ -254,9 +255,10 @@ else:
             border-radius: 8px;
         }
         
-        /* Hide hamburger menu and footer */
+        /* Hide hamburger menu, footer, and default navigation */
         #MainMenu {visibility: hidden;}
         footer {visibility: hidden;}
+        section[data-testid="stSidebarNav"] {display: none;}
         
         /* Custom scrollbar */
         ::-webkit-scrollbar {
@@ -355,31 +357,49 @@ with st.sidebar:
             logout()
             st.rerun()
     else:
-        # Show role cards for non-authenticated users
-        st.markdown("### 📊 Choose Your Dashboard")
-        st.markdown("Login to access your role-specific analytics")
+        # Show role descriptions for non-authenticated users (informational only)
+        st.markdown("### 📊 Dashboard Roles")
+        st.markdown("*Login to access dashboards*")
         
         st.markdown("---")
         
-        # Role cards
+        # Role descriptions (non-clickable)
         st.markdown("""
-        **👨🏿‍💼 Admin**  
-        System health & analytics
+        **👨🏿‍💼 Administrator**  
+        • System health monitoring  
+        • User analytics  
+        • AI resource tracking  
+        • Platform configuration
         """)
+        
+        st.markdown("---")
         
         st.markdown("""
         **👨🏿‍💻 Developer**  
-        API performance & debugging
+        • API performance metrics  
+        • Error tracking & debugging  
+        • Backend telemetry  
+        • Web vitals monitoring
         """)
+        
+        st.markdown("---")
         
         st.markdown("""
         **👩🏿‍🏫 Faculty**  
-        Student performance tracking
+        • Student performance  
+        • Case study analytics  
+        • At-risk identification  
+        • Cohort comparisons
         """)
+        
+        st.markdown("---")
         
         st.markdown("""
         **👨🏿‍🎓 Student**  
-        Personal learning journey
+        • Learning journey  
+        • Performance tracking  
+        • Progress visualization  
+        • Achievement badges
         """)
 
 # Main content area - Show login if not authenticated
