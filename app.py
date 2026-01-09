@@ -229,24 +229,6 @@ if not st.session_state.get('authenticated', False):
                     st.rerun()
                 else:
                     st.error("❌ Invalid email or password")
-        
-        st.markdown("---")
-        
-        # Demo credentials
-        with st.expander("📝 Demo Credentials"):
-            st.markdown("""
-            **Admin:**  
-            📧 `admin@miva.edu` | 🔑 `admin123`
-            
-            **Developer:**  
-            📧 `dev@miva.edu` | 🔑 `dev123`
-            
-            **Faculty:**  
-            📧 `faculty@miva.edu` | 🔑 `faculty123`
-            
-            **Student:**  
-            📧 `student@miva.edu` | 🔑 `student123`
-            """)
     
     # Footer
     st.markdown("---")
