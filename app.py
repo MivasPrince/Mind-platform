@@ -282,98 +282,196 @@ else:
 # Initialize session state
 initialize_session_state()
 
-# Show login page if not authenticated
-if not st.session_state.get('authenticated', False):
-    show_login_page()
-else:
-    # Show sidebar with user info and navigation
-    show_user_info_sidebar()
+# ALWAYS show sidebar with role cards (whether logged in or not)
+with st.sidebar:
+    import base64
     
-    # Main content area
-    st.title("MIND Platform")
-    st.markdown("### AI-Enhanced Educational Analytics Dashboard")
+    # Theme toggle at top of sidebar
+    col1, col2 = st.columns([3, 1])
+    with col2:
+        if st.session_state.get('theme', 'dark') == 'dark':
+            if st.button("☀️", help="Switch to light mode", key="sidebar_theme_toggle"):
+                st.session_state.theme = 'light'
+                st.rerun()
+        else:
+            if st.button("🌙", help="Switch to dark mode", key="sidebar_theme_toggle"):
+                st.session_state.theme = 'dark'
+                st.rerun()
     
-    # Welcome message with role-specific information
-    user_role = st.session_state.get('user_role', 'user')
-    user_name = st.session_state.get('user_name', 'User')
-    
-    st.markdown(f"""
-    Welcome back, **{user_name}**! 
-    
-    You are logged in as: **{user_role.title()}**
-    """)
-    
-    # Role-specific guidance
-    if user_role == 'admin':
-        st.info("""
-        **Admin Dashboard Features:**
-        - 📊 System health monitoring and KPIs
-        - 👥 User management and activity tracking
-        - 💰 AI resource consumption and costs
-        - ⚙️ Platform configuration and settings
-        - 📈 Comprehensive analytics across all users
-        """)
-    elif user_role == 'developer':
-        st.info("""
-        **Developer Dashboard Features:**
-        - 🔧 API performance metrics and latency analysis
-        - 🤖 AI model usage and token distribution
-        - 🐛 Error tracking and trace debugging
-        - 📡 Backend telemetry and system health
-        """)
-    elif user_role == 'faculty':
-        st.info("""
-        **Faculty Dashboard Features:**
-        - 📚 Student performance analytics
-        - 📊 Case study effectiveness tracking
-        - 🎯 Learning outcome assessment
-        - ⚠️ At-risk student identification
-        - 📈 Cohort and department comparisons
-        """)
-    elif user_role == 'student':
-        st.info("""
-        **Student Dashboard Features:**
-        - 📖 Personal learning journey tracking
-        - 🎯 Performance across rubric categories
-        - 📊 Progress comparison with class averages
-        - 📝 Past conversation reviews
-        - 🏆 Achievement highlights
-        """)
+    # Display theme-aware MIVA logo
+    try:
+        if st.session_state.get('theme', 'dark') == 'dark':
+            logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
+        else:
+            logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
+        
+        import os
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
+            
+            st.markdown(f"""
+                <div style="margin-bottom: 1rem;">
+                    <img src="data:image/png;base64,{logo_b64}" width="180" alt="MIVA Logo">
+                </div>
+            """, unsafe_allow_html=True)
+    except:
+        pass
     
     st.markdown("---")
     
-    # Quick navigation
-    st.markdown("### 🚀 Quick Navigation")
-    
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
+    # Show user info if authenticated, otherwise show role selection
+    if st.session_state.get('authenticated', False):
+        st.markdown(f"**👤 {st.session_state.user_name}**")
+        st.markdown(f"*{st.session_state.user_role.title()}*")
+        st.markdown(f"📧 {st.session_state.user_email}")
+        
+        st.markdown("---")
+        st.markdown("### 📊 Dashboards")
+        
+        # Show available dashboards based on role
+        user_role = st.session_state.user_role
+        
         if can_access_page(user_role, 'Admin'):
-            if st.button("👨🏿‍💼 Admin Dashboard", use_container_width=True):
+            if st.button("👨🏿‍💼 Admin", use_container_width=True, key="nav_admin"):
                 st.switch_page("pages/1_👨🏿‍💼_Admin.py")
+        
+        if can_access_page(user_role, 'Developer'):
+            if st.button("👨🏿‍💻 Developer", use_container_width=True, key="nav_dev"):
+                st.switch_page("pages/2_👨🏿‍💻_Developer.py")
+        
+        if can_access_page(user_role, 'Faculty'):
+            if st.button("👩🏿‍🏫 Faculty", use_container_width=True, key="nav_faculty"):
+                st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
+        
+        if can_access_page(user_role, 'Student'):
+            if st.button("👨🏿‍🎓 Student", use_container_width=True, key="nav_student"):
+                st.switch_page("pages/4_👨🏿‍🎓_Student.py")
+        
+        st.markdown("---")
+        
+        if st.button("🚪 Logout", use_container_width=True):
+            from utils.auth_handler import logout
+            logout()
+            st.rerun()
+    else:
+        # Show role cards for non-authenticated users
+        st.markdown("### 📊 Choose Your Dashboard")
+        st.markdown("Login to access your role-specific analytics")
+        
+        st.markdown("---")
+        
+        # Role cards
+        st.markdown("""
+        **👨🏿‍💼 Admin**  
+        System health & analytics
+        """)
+        
+        st.markdown("""
+        **👨🏿‍💻 Developer**  
+        API performance & debugging
+        """)
+        
+        st.markdown("""
+        **👩🏿‍🏫 Faculty**  
+        Student performance tracking
+        """)
+        
+        st.markdown("""
+        **👨🏿‍🎓 Student**  
+        Personal learning journey
+        """)
+
+# Main content area - Show login if not authenticated
+if not st.session_state.get('authenticated', False):
+    # Login page (centered)
+    st.markdown("""
+        <style>
+        .login-container {
+            max-width: 450px;
+            margin: 50px auto;
+            padding: 40px;
+            background-color: #262730;
+            border-radius: 12px;
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+        }
+        .dashboard-title {
+            text-align: center;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 2, 1])
     
     with col2:
-        if can_access_page(user_role, 'Developer'):
-            if st.button("👨🏿‍💻 Developer Dashboard", use_container_width=True):
-                st.switch_page("pages/2_👨🏿‍💻_Developer.py")
-    
-    with col3:
-        if can_access_page(user_role, 'Faculty'):
-            if st.button("👩🏿‍🏫 Faculty Dashboard", use_container_width=True):
-                st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
-    
-    col4, col5, col6 = st.columns(3)
-    
-    with col4:
-        if can_access_page(user_role, 'Student'):
-            if st.button("👨🏿‍🎓 Student Dashboard", use_container_width=True):
-                st.switch_page("pages/4_👨🏿‍🎓_Student.py")
+        st.markdown('<div class="dashboard-title">MIND Analytics Dashboard</div>', unsafe_allow_html=True)
+        st.markdown("### 🔐 Login to Continue")
+        st.markdown("---")
+        
+        with st.form("login_form"):
+            email = st.text_input("Email", placeholder="user@mind.edu", key="login_email")
+            password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
+            submit = st.form_submit_button("Login", use_container_width=True)
+            
+            if submit:
+                from utils.auth_handler import login
+                if login(email, password):
+                    st.success(f"✅ Welcome, {st.session_state.user_name}!")
+                    st.rerun()
+                else:
+                    st.error("❌ Invalid email or password")
+        
+        st.markdown("---")
+        
+        # Demo credentials info
+        with st.expander("📝 Demo Credentials"):
+            st.markdown("""
+            **Admin:**  
+            📧 admin@miva.edu  
+            🔑 admin123
+            
+            **Developer:**  
+            📧 dev@miva.edu  
+            🔑 dev123
+            
+            **Faculty:**  
+            📧 faculty@miva.edu  
+            🔑 faculty123
+            
+            **Student:**  
+            📧 student@miva.edu  
+            🔑 student123
+            """)
     
     # Footer
     st.markdown("---")
     st.markdown("""
-        <div style='text-align: center; color: #666; padding: 20px;'>
-            <p>MIND Platform v1.0 | AI-Enhanced Educational Analytics</p>
+        <div style='text-align: center; color: #888; padding: 20px;'>
+            <p>MIND Platform v2.0 | AI-Enhanced Educational Analytics</p>
             <p>Powered by BigQuery, Streamlit & Plotly</p>
         </div>
     """, unsafe_allow_html=True)
+else:
+    # User is authenticated - redirect to their default dashboard
+    user_role = st.session_state.get('user_role', 'student')
+    
+    st.markdown("### 🎉 Login Successful!")
+    st.markdown(f"Welcome back, **{st.session_state.user_name}**!")
+    
+    st.markdown("---")
+    
+    # Auto-redirect message
+    st.info(f"Redirecting you to your {user_role.title()} Dashboard...")
+    
+    # Role-specific redirect
+    if user_role == 'admin':
+        st.switch_page("pages/1_👨🏿‍💼_Admin.py")
+    elif user_role == 'developer':
+        st.switch_page("pages/2_👨🏿‍💻_Developer.py")
+    elif user_role == 'faculty':
+        st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
+    else:  # student
+        st.switch_page("pages/4_👨🏿‍🎓_Student.py")
