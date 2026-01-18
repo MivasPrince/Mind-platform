@@ -3,9 +3,14 @@ Authentication Handler
 Manages user login, logout, and session state
 """
 
+import re
 import streamlit as st
 import bcrypt
 from config.auth import USERS, get_user_permissions
+
+
+# Simple, practical email pattern (enough for UI validation)
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def initialize_session_state():
@@ -22,20 +27,46 @@ def initialize_session_state():
         st.session_state.user_data = None
 
 
+def _normalize_email(email: str) -> str:
+    """Normalize email to reduce false login failures."""
+    return (email or "").strip().lower()
+
+
+def validate_login_inputs(email: str, password: str) -> tuple[bool, str | None]:
+    """
+    Validate login inputs (UI-level validation).
+    Returns: (is_valid, error_message)
+    """
+    email = _normalize_email(email)
+    password = (password or "").strip()
+
+    if not email and not password:
+        return False, "Email and password are required."
+    if not email:
+        return False, "Email is required."
+    if not _EMAIL_RE.match(email):
+        return False, "Enter a valid email address (e.g., name@domain.com)."
+    if not password:
+        return False, "Password is required."
+
+    return True, None
+
+
 def verify_password(email: str, password: str) -> bool:
     """
     Verify user credentials
-    
+
     Args:
         email: User email
         password: Plain text password
-        
+
     Returns:
         True if credentials are valid
     """
+    email = _normalize_email(email)
     if email not in USERS:
         return False
-    
+
     user = USERS[email]
     return bcrypt.checkpw(password.encode('utf-8'), user['password_hash'])
 
@@ -43,14 +74,16 @@ def verify_password(email: str, password: str) -> bool:
 def login(email: str, password: str) -> bool:
     """
     Authenticate user and create session
-    
+
     Args:
         email: User email
         password: Plain text password
-        
+
     Returns:
         True if login successful
     """
+    email = _normalize_email(email)
+
     if verify_password(email, password):
         user = USERS[email]
         st.session_state.authenticated = True
@@ -59,6 +92,7 @@ def login(email: str, password: str) -> bool:
         st.session_state.user_role = user['role']
         st.session_state.user_data = user
         return True
+
     return False
 
 
@@ -88,16 +122,16 @@ def get_current_user():
 def has_permission(permission: str) -> bool:
     """
     Check if current user has a specific permission
-    
+
     Args:
         permission: Permission key to check
-        
+
     Returns:
         True if user has permission
     """
     if not st.session_state.get('authenticated', False):
         return False
-    
+
     role = st.session_state.get('user_role')
     permissions = get_user_permissions(role)
     return permissions.get(permission, False)
@@ -107,11 +141,11 @@ def show_login_page():
     """Display login page with theme-aware MIVA logo"""
     import base64
     import os
-    
+
     # Initialize theme if not set
     if 'theme' not in st.session_state:
         st.session_state.theme = 'dark'  # Default to dark theme
-    
+
     # Theme toggle in top corner
     col_left, col_center, col_right = st.columns([1, 3, 1])
     with col_right:
@@ -124,7 +158,7 @@ def show_login_page():
             if st.button("🌙", help="Switch to dark mode", key="login_theme_toggle"):
                 st.session_state.theme = 'dark'
                 st.rerun()
-    
+
     # Apply theme CSS
     if st.session_state.theme == 'light':
         st.markdown("""
@@ -191,7 +225,7 @@ def show_login_page():
             }
             </style>
         """, unsafe_allow_html=True)
-    
+
     st.markdown("""
         <style>
         .login-container {
@@ -219,9 +253,9 @@ def show_login_page():
         }
         </style>
     """, unsafe_allow_html=True)
-    
+
     col1, col2, col3 = st.columns([1, 2, 1])
-    
+
     with col2:
         # Display theme-aware MIVA logo
         try:
@@ -230,12 +264,12 @@ def show_login_page():
                 logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
             else:
                 logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
-            
+
             # Try to load and display logo
             if os.path.exists(logo_path):
                 with open(logo_path, "rb") as f:
                     logo_b64 = base64.b64encode(f.read()).decode()
-                
+
                 st.markdown(f"""
                     <div class="logo-container">
                         <img src="data:image/png;base64,{logo_b64}" alt="MIVA Logo">
@@ -247,22 +281,32 @@ def show_login_page():
         except Exception:
             # Fallback on any error
             st.markdown("# 🧠 MIND Platform")
-        
+
         # Centered dashboard title
         st.markdown('<div class="dashboard-title">MIND Analytics Dashboard</div>', unsafe_allow_html=True)
         st.markdown("---")
-        
+
         with st.form("login_form"):
             email = st.text_input("Email", placeholder="user@mind.edu")
             password = st.text_input("Password", type="password", placeholder="Enter password")
             submit = st.form_submit_button("Login", use_container_width=True)
-            
+
             if submit:
-                if login(email, password):
-                    st.success(f"Welcome, {st.session_state.user_name}!")
-                    st.rerun()
+                ok, err = validate_login_inputs(email, password)
+                if not ok:
+                    st.error(err)
                 else:
-                    st.error("Invalid email or password")
+                    normalized_email = _normalize_email(email)
+
+                    # Give specific feedback per UAT
+                    if normalized_email not in USERS:
+                        st.error("No account found for that email.")
+                    else:
+                        if login(normalized_email, password):
+                            st.success(f"Welcome, {st.session_state.user_name}!")
+                            st.rerun()
+                        else:
+                            st.error("Incorrect password.")
 
 
 def show_user_info_sidebar():
@@ -273,7 +317,7 @@ def show_user_info_sidebar():
             st.markdown(f"**👤 {st.session_state.user_name}**")
             st.markdown(f"*{st.session_state.user_role.title()}*")
             st.markdown(f"📧 {st.session_state.user_email}")
-            
+
             if st.button("🚪 Logout", use_container_width=True):
                 logout()
                 st.rerun()
