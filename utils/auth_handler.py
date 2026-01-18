@@ -6,6 +6,7 @@ Manages user login, logout, and session state
 from __future__ import annotations
 
 import base64
+import re
 from pathlib import Path
 
 import bcrypt
@@ -15,6 +16,17 @@ from config.auth import USERS, get_user_permissions
 
 
 # ---------- Helpers ----------
+
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+
+
+def _normalize_email(email: str | None) -> str:
+    return (email or "").strip().lower()
+
+
+def _is_valid_email(email: str) -> bool:
+    return bool(_EMAIL_RE.match(email))
+
 
 def _project_root() -> Path:
     # utils/auth_handler.py -> utils -> project root
@@ -73,20 +85,17 @@ def initialize_session_state():
 
 
 def verify_password(email: str, password: str) -> bool:
-    """
-    Verify user credentials
-    """
+    """Verify user credentials"""
     if not email or not password:
         return False
 
-    email = email.strip().lower()
+    email = _normalize_email(email)
 
     if email not in USERS:
         return False
 
     user = USERS[email]
     password_hash = user.get("password_hash")
-
     if not password_hash:
         return False
 
@@ -98,19 +107,31 @@ def verify_password(email: str, password: str) -> bool:
 
 def login(email: str, password: str) -> bool:
     """
-    Authenticate user and create session
+    Authenticate user and create session.
+    Populates st.session_state.login_error with the exact reason on failure.
     """
     st.session_state.login_error = None
 
-    email_clean = (email or "").strip().lower()
+    email_clean = _normalize_email(email)
     password_clean = password or ""
 
+    # Required fields
     if not email_clean:
-        st.session_state.login_error = "Please enter your email address."
+        st.session_state.login_error = "Email is required."
         return False
 
     if not password_clean:
-        st.session_state.login_error = "Please enter your password."
+        st.session_state.login_error = "Password is required."
+        return False
+
+    # Email format validation (UAT requirement)
+    if not _is_valid_email(email_clean):
+        st.session_state.login_error = "Enter a valid email address (e.g., name@domain.com)."
+        return False
+
+    # More precise feedback (UAT requirement: clearer login feedback)
+    if email_clean not in USERS:
+        st.session_state.login_error = "No account found for that email."
         return False
 
     if verify_password(email_clean, password_clean):
@@ -123,7 +144,7 @@ def login(email: str, password: str) -> bool:
         st.session_state.login_error = None
         return True
 
-    st.session_state.login_error = "Invalid email or password."
+    st.session_state.login_error = "Incorrect password."
     return False
 
 
@@ -157,9 +178,7 @@ def get_current_user():
 
 
 def has_permission(permission: str) -> bool:
-    """
-    Check if current user has a specific permission
-    """
+    """Check if current user has a specific permission"""
     if not st.session_state.get("authenticated", False):
         return False
 
