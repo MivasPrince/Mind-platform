@@ -3,293 +3,277 @@ Authentication Handler
 Manages user login, logout, and session state
 """
 
-from __future__ import annotations
-
-import base64
-import re
-from pathlib import Path
-
-import bcrypt
 import streamlit as st
-
+import bcrypt
 from config.auth import USERS, get_user_permissions
 
 
-# ---------- Helpers ----------
-
-_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
-
-
-def _normalize_email(email: str | None) -> str:
-    return (email or "").strip().lower()
-
-
-def _is_valid_email(email: str) -> bool:
-    return bool(_EMAIL_RE.match(email))
-
-
-def _project_root() -> Path:
-    # utils/auth_handler.py -> utils -> project root
-    return Path(__file__).resolve().parents[1]
-
-
-def _get_asset_path(filename: str) -> Path:
-    return _project_root() / "assets" / filename
-
-
-def _load_logo_base64(theme: str) -> str | None:
-    """
-    Returns base64 string for the appropriate theme logo, or None if not found.
-    """
-    # Dark theme uses light logo, light theme uses dark logo
-    logo_file = "miva_logo_light.png" if theme == "dark" else "miva_logo_dark.png"
-
-    # Try absolute (local/dev), then relative (Streamlit Cloud working dir)
-    candidates = [
-        _get_asset_path(logo_file),
-        Path("assets") / logo_file,
-    ]
-
-    for p in candidates:
-        try:
-            if p.exists():
-                return base64.b64encode(p.read_bytes()).decode("utf-8")
-        except Exception:
-            continue
-
-    return None
-
-
-# ---------- Session & Auth ----------
-
 def initialize_session_state():
     """Initialize session state variables"""
-    if "authenticated" not in st.session_state:
+    if 'authenticated' not in st.session_state:
         st.session_state.authenticated = False
-    if "user_email" not in st.session_state:
+    if 'user_email' not in st.session_state:
         st.session_state.user_email = None
-    if "user_name" not in st.session_state:
+    if 'user_name' not in st.session_state:
         st.session_state.user_name = None
-    if "user_role" not in st.session_state:
+    if 'user_role' not in st.session_state:
         st.session_state.user_role = None
-    if "user_data" not in st.session_state:
+    if 'user_data' not in st.session_state:
         st.session_state.user_data = None
-
-    # Theme defaults
-    if "theme" not in st.session_state:
-        st.session_state.theme = "dark"
-
-    # For clearer login feedback
-    if "login_error" not in st.session_state:
-        st.session_state.login_error = None
 
 
 def verify_password(email: str, password: str) -> bool:
-    """Verify user credentials"""
-    if not email or not password:
-        return False
-
-    email = _normalize_email(email)
-
+    """
+    Verify user credentials
+    
+    Args:
+        email: User email
+        password: Plain text password
+        
+    Returns:
+        True if credentials are valid
+    """
     if email not in USERS:
         return False
-
+    
     user = USERS[email]
-    password_hash = user.get("password_hash")
-    if not password_hash:
-        return False
-
-    try:
-        return bcrypt.checkpw(password.encode("utf-8"), password_hash)
-    except Exception:
-        return False
+    return bcrypt.checkpw(password.encode('utf-8'), user['password_hash'])
 
 
 def login(email: str, password: str) -> bool:
     """
-    Authenticate user and create session.
-    Populates st.session_state.login_error with the exact reason on failure.
+    Authenticate user and create session
+    
+    Args:
+        email: User email
+        password: Plain text password
+        
+    Returns:
+        True if login successful
     """
-    st.session_state.login_error = None
-
-    email_clean = _normalize_email(email)
-    password_clean = password or ""
-
-    # Required fields
-    if not email_clean:
-        st.session_state.login_error = "Email is required."
-        return False
-
-    if not password_clean:
-        st.session_state.login_error = "Password is required."
-        return False
-
-    # Email format validation (UAT requirement)
-    if not _is_valid_email(email_clean):
-        st.session_state.login_error = "Enter a valid email address (e.g., name@domain.com)."
-        return False
-
-    # More precise feedback (UAT requirement: clearer login feedback)
-    if email_clean not in USERS:
-        st.session_state.login_error = "No account found for that email."
-        return False
-
-    if verify_password(email_clean, password_clean):
-        user = USERS[email_clean]
+    if verify_password(email, password):
+        user = USERS[email]
         st.session_state.authenticated = True
-        st.session_state.user_email = email_clean
-        st.session_state.user_name = user.get("name", "User")
-        st.session_state.user_role = user.get("role")
+        st.session_state.user_email = email
+        st.session_state.user_name = user['name']
+        st.session_state.user_role = user['role']
         st.session_state.user_data = user
-        st.session_state.login_error = None
         return True
-
-    st.session_state.login_error = "Incorrect password."
     return False
 
 
 def logout():
-    """Clear session and logout user (keeps theme preference)."""
-    theme = st.session_state.get("theme", "dark")
-
+    """Clear session and logout user"""
     st.session_state.authenticated = False
     st.session_state.user_email = None
     st.session_state.user_name = None
     st.session_state.user_role = None
     st.session_state.user_data = None
-    st.session_state.login_error = None
-
-    st.session_state.theme = theme
 
 
 def require_authentication():
     """
-    Helper to require authentication.
-    Redirects to home page (login) if not authenticated.
+    Decorator/helper to require authentication
+    Redirects to home page (login) if not authenticated
     """
-    initialize_session_state()
-    if not st.session_state.get("authenticated", False):
+    if not st.session_state.get('authenticated', False):
         st.switch_page("app.py")
 
 
 def get_current_user():
     """Get current logged-in user data"""
-    return st.session_state.get("user_data", None)
+    return st.session_state.get('user_data', None)
 
 
 def has_permission(permission: str) -> bool:
-    """Check if current user has a specific permission"""
-    if not st.session_state.get("authenticated", False):
+    """
+    Check if current user has a specific permission
+    
+    Args:
+        permission: Permission key to check
+        
+    Returns:
+        True if user has permission
+    """
+    if not st.session_state.get('authenticated', False):
         return False
-
-    role = st.session_state.get("user_role")
+    
+    role = st.session_state.get('user_role')
     permissions = get_user_permissions(role)
-    return bool(permissions.get(permission, False))
+    return permissions.get(permission, False)
 
-
-# ---------- UI ----------
 
 def show_login_page():
-    """Display login page with theme-aware MIVA logo and better validation feedback."""
-    initialize_session_state()
-
-    # Theme toggle (top right)
-    _, _, col_right = st.columns([1, 3, 1])
+    """Display login page with theme-aware MIVA logo"""
+    import base64
+    import os
+    
+    # Initialize theme if not set
+    if 'theme' not in st.session_state:
+        st.session_state.theme = 'dark'  # Default to dark theme
+    
+    # Theme toggle in top corner
+    col_left, col_center, col_right = st.columns([1, 3, 1])
     with col_right:
-        if st.session_state.theme == "dark":
+        # Small theme toggle
+        if st.session_state.theme == 'dark':
             if st.button("☀️", help="Switch to light mode", key="login_theme_toggle"):
-                st.session_state.theme = "light"
+                st.session_state.theme = 'light'
                 st.rerun()
         else:
             if st.button("🌙", help="Switch to dark mode", key="login_theme_toggle"):
-                st.session_state.theme = "dark"
+                st.session_state.theme = 'dark'
                 st.rerun()
-
-    # Theme CSS
-    if st.session_state.theme == "light":
-        st.markdown(
-            """
+    
+    # Apply theme CSS
+    if st.session_state.theme == 'light':
+        st.markdown("""
             <style>
-            .stApp { background-color: #ffffff; color: #262730; }
-            .stButton > button { background-color: #e63946; color: #ffffff !important; border: none; font-weight: 600; }
-            .stButton > button:hover { background-color: #c7313a; color: #ffffff !important; border: none; }
-            button[kind="primaryFormSubmit"] { background-color: #e63946 !important; color: #ffffff !important; border: none !important; }
-            button[kind="primaryFormSubmit"]:hover { background-color: #c7313a !important; color: #ffffff !important; }
+            .stApp {
+                background-color: #ffffff;
+                color: #262730;
+            }
+            .login-container {
+                background-color: #f0f2f6 !important;
+            }
+            /* Login button styling for light mode */
+            .stButton > button {
+                background-color: #e63946;
+                color: #ffffff !important;
+                border: none;
+                font-weight: 600;
+            }
+            .stButton > button:hover {
+                background-color: #c7313a;
+                color: #ffffff !important;
+                border: none;
+            }
+            /* Form submit button specifically */
+            button[kind="primaryFormSubmit"] {
+                background-color: #e63946 !important;
+                color: #ffffff !important;
+                border: none !important;
+            }
+            button[kind="primaryFormSubmit"]:hover {
+                background-color: #c7313a !important;
+                color: #ffffff !important;
+            }
             </style>
-            """,
-            unsafe_allow_html=True,
-        )
+        """, unsafe_allow_html=True)
     else:
-        st.markdown(
-            """
+        st.markdown("""
             <style>
-            .stApp { background-color: #0e1117; color: #fafafa; }
-            .stButton > button { background-color: #FF6B6B; color: #ffffff !important; border: none; font-weight: 600; }
-            .stButton > button:hover { background-color: #ff5252; color: #ffffff !important; border: none; }
-            button[kind="primaryFormSubmit"] { background-color: #FF6B6B !important; color: #ffffff !important; border: none !important; }
-            button[kind="primaryFormSubmit"]:hover { background-color: #ff5252 !important; color: #ffffff !important; }
+            .stApp {
+                background-color: #0e1117;
+                color: #fafafa;
+            }
+            /* Login button styling for dark mode */
+            .stButton > button {
+                background-color: #FF6B6B;
+                color: #ffffff !important;
+                border: none;
+                font-weight: 600;
+            }
+            .stButton > button:hover {
+                background-color: #ff5252;
+                color: #ffffff !important;
+                border: none;
+            }
+            /* Form submit button specifically */
+            button[kind="primaryFormSubmit"] {
+                background-color: #FF6B6B !important;
+                color: #ffffff !important;
+                border: none !important;
+            }
+            button[kind="primaryFormSubmit"]:hover {
+                background-color: #ff5252 !important;
+                color: #ffffff !important;
+            }
             </style>
-            """,
-            unsafe_allow_html=True,
-        )
-
-    st.markdown(
-        """
+        """, unsafe_allow_html=True)
+    
+    st.markdown("""
         <style>
-        .logo-container { text-align: center; margin-bottom: 1rem; }
-        .logo-container img { max-width: 200px; height: auto; }
-        .dashboard-title { text-align: center; margin-top: 0.5rem; margin-bottom: 1.25rem; font-size: 1.5rem; font-weight: 400; }
+        .login-container {
+            max-width: 400px;
+            margin: 100px auto;
+            padding: 40px;
+            background-color: #262730;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+        .logo-container {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        .logo-container img {
+            max-width: 200px;
+            height: auto;
+        }
+        .dashboard-title {
+            text-align: center;
+            margin-top: 1rem;
+            margin-bottom: 2rem;
+            font-size: 1.5rem;
+            font-weight: 400;
+        }
         </style>
-        """,
-        unsafe_allow_html=True,
-    )
-
+    """, unsafe_allow_html=True)
+    
     col1, col2, col3 = st.columns([1, 2, 1])
-
+    
     with col2:
-        logo_b64 = _load_logo_base64(st.session_state.theme)
-        if logo_b64:
-            st.markdown(
-                f"""
-                <div class="logo-container">
-                    <img src="data:image/png;base64,{logo_b64}" alt="MIVA Logo">
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        else:
+        # Display theme-aware MIVA logo
+        try:
+            # Select logo based on theme
+            if st.session_state.theme == 'dark':
+                logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
+            else:
+                logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
+            
+            # Try to load and display logo
+            if os.path.exists(logo_path):
+                with open(logo_path, "rb") as f:
+                    logo_b64 = base64.b64encode(f.read()).decode()
+                
+                st.markdown(f"""
+                    <div class="logo-container">
+                        <img src="data:image/png;base64,{logo_b64}" alt="MIVA Logo">
+                    </div>
+                """, unsafe_allow_html=True)
+            else:
+                # Fallback if logo not found
+                st.markdown("# 🧠 MIND Platform")
+        except Exception:
+            # Fallback on any error
             st.markdown("# 🧠 MIND Platform")
-
+        
+        # Centered dashboard title
         st.markdown('<div class="dashboard-title">MIND Analytics Dashboard</div>', unsafe_allow_html=True)
-        st.caption("AI-Enhanced Educational Analytics")
         st.markdown("---")
-
-        with st.form("login_form", clear_on_submit=False):
-            email = st.text_input("Email", placeholder="user@mind.edu", key="login_email")
-            password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
+        
+        with st.form("login_form"):
+            email = st.text_input("Email", placeholder="user@mind.edu")
+            password = st.text_input("Password", type="password", placeholder="Enter password")
             submit = st.form_submit_button("Login", use_container_width=True)
-
+            
             if submit:
                 if login(email, password):
                     st.success(f"Welcome, {st.session_state.user_name}!")
                     st.rerun()
                 else:
-                    st.error(st.session_state.login_error or "Login failed. Please try again.")
-
-        st.caption("Need access? Contact your administrator.")
+                    st.error("Invalid email or password")
 
 
 def show_user_info_sidebar():
     """Display user info in sidebar"""
-    initialize_session_state()
-
-    if st.session_state.get("authenticated", False):
+    if st.session_state.get('authenticated', False):
         with st.sidebar:
             st.markdown("---")
             st.markdown(f"**👤 {st.session_state.user_name}**")
-            st.markdown(f"*{str(st.session_state.user_role).title()}*")
+            st.markdown(f"*{st.session_state.user_role.title()}*")
             st.markdown(f"📧 {st.session_state.user_email}")
-
+            
             if st.button("🚪 Logout", use_container_width=True):
                 logout()
                 st.rerun()
