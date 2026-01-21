@@ -1,13 +1,10 @@
 """
-Authentication Configuration
-Defines user roles and credentials for RBAC
+Authentication Configuration - ENHANCED WITH PAGE ROUTING
+Defines user roles, credentials, and permissions for RBAC
 """
-
 from __future__ import annotations
-
 from typing import Dict, Any
 import bcrypt
-
 
 # User roles
 class UserRole:
@@ -15,7 +12,6 @@ class UserRole:
     DEVELOPER = "developer"
     FACULTY = "faculty"
     STUDENT = "student"
-
 
 # -------------------------------------------------------------------
 # IMPORTANT:
@@ -26,7 +22,6 @@ class UserRole:
 # Default password for demo users: "mind2026"
 # -------------------------------------------------------------------
 DEFAULT_PASSWORD_HASH: bytes = b"$2b$12$zpk89WA.sxSD/fEfGIRxJ./nDXU5swNkjLKTuWf.nIiG6qSoBwiTO"
-
 
 # Predefined users with hashed passwords
 USERS: Dict[str, Dict[str, Any]] = {
@@ -60,7 +55,6 @@ USERS: Dict[str, Dict[str, Any]] = {
         "user_id": "550e8400-e29b-41d4-a716-446655440000",
     },
 }
-
 
 # Role permissions mapping
 ROLE_PERMISSIONS: Dict[str, Dict[str, Any]] = {
@@ -104,3 +98,23 @@ def can_access_page(role: str, page: str) -> bool:
     """Check if a role can access a specific page"""
     permissions = get_user_permissions(role)
     return page in permissions.get("pages", [])
+
+
+def get_role_home_page(role: str) -> str:
+    """
+    Get the default landing page for a role
+    
+    Args:
+        role: User role
+        
+    Returns:
+        Page path for the role's home dashboard
+    """
+    role_page_map = {
+        UserRole.ADMIN: "pages/1_👨🏿‍💼_Admin.py",
+        UserRole.DEVELOPER: "pages/2_👨🏿‍💻_Developer.py",
+        UserRole.FACULTY: "pages/3_👩🏿‍🏫_Faculty.py",
+        UserRole.STUDENT: "pages/4_👨🏿‍🎓_Student.py",
+    }
+    
+    return role_page_map.get(role, "app.py")
