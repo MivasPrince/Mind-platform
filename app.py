@@ -4,7 +4,7 @@ Main Portal & Authentication Page - FIXED FOR CLEAN LOGIN + RBAC
 """
 
 import streamlit as st
-from utils.auth_handler import initialize_session_state, login, logout, get_user_home_page
+from utils.auth_handler import initialize_session_state, login, logout
 from config.auth import can_access_page
 import base64
 import os
@@ -22,6 +22,17 @@ if 'theme' not in st.session_state:
     st.session_state.theme = 'dark'
 
 initialize_session_state()
+
+# Helper function defined locally (no import needed)
+def get_user_home_page(role: str) -> str:
+    """Get the home page for a role"""
+    role_page_map = {
+        "admin": "pages/1_👨🏿‍💼_Admin.py",
+        "developer": "pages/2_👨🏿‍💻_Developer.py",
+        "faculty": "pages/3_👩🏿‍🏫_Faculty.py",
+        "student": "pages/4_👨🏿‍🎓_Student.py",
+    }
+    return role_page_map.get(role, "app.py")
 
 # Global CSS
 st.markdown("""
