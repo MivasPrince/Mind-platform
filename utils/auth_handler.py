@@ -1,11 +1,11 @@
 """
-Authentication Handler
-Manages user login, logout, and session state
+Authentication Handler - ENHANCED WITH RBAC NAVIGATION
+Manages user login, logout, session state, and role-based routing
 """
 
 import streamlit as st
 import bcrypt
-from config.auth import USERS, get_user_permissions
+from config.auth import USERS, get_user_permissions, can_access_page
 
 
 def initialize_session_state():
@@ -103,176 +103,72 @@ def has_permission(permission: str) -> bool:
     return permissions.get(permission, False)
 
 
-def show_login_page():
-    """Display login page with theme-aware MIVA logo"""
-    import base64
-    import os
+def get_user_home_page(role: str) -> str:
+    """
+    Get the home page/dashboard for a given role
     
-    # Initialize theme if not set
-    if 'theme' not in st.session_state:
-        st.session_state.theme = 'dark'  # Default to dark theme
-    
-    # Theme toggle in top corner
-    col_left, col_center, col_right = st.columns([1, 3, 1])
-    with col_right:
-        # Small theme toggle
-        if st.session_state.theme == 'dark':
-            if st.button("☀️", help="Switch to light mode", key="login_theme_toggle"):
-                st.session_state.theme = 'light'
-                st.rerun()
-        else:
-            if st.button("🌙", help="Switch to dark mode", key="login_theme_toggle"):
-                st.session_state.theme = 'dark'
-                st.rerun()
-    
-    # Apply theme CSS
-    if st.session_state.theme == 'light':
-        st.markdown("""
-            <style>
-            .stApp {
-                background-color: #ffffff;
-                color: #262730;
-            }
-            .login-container {
-                background-color: #f0f2f6 !important;
-            }
-            /* Login button styling for light mode */
-            .stButton > button {
-                background-color: #e63946;
-                color: #ffffff !important;
-                border: none;
-                font-weight: 600;
-            }
-            .stButton > button:hover {
-                background-color: #c7313a;
-                color: #ffffff !important;
-                border: none;
-            }
-            /* Form submit button specifically */
-            button[kind="primaryFormSubmit"] {
-                background-color: #e63946 !important;
-                color: #ffffff !important;
-                border: none !important;
-            }
-            button[kind="primaryFormSubmit"]:hover {
-                background-color: #c7313a !important;
-                color: #ffffff !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
-            <style>
-            .stApp {
-                background-color: #0e1117;
-                color: #fafafa;
-            }
-            /* Login button styling for dark mode */
-            .stButton > button {
-                background-color: #FF6B6B;
-                color: #ffffff !important;
-                border: none;
-                font-weight: 600;
-            }
-            .stButton > button:hover {
-                background-color: #ff5252;
-                color: #ffffff !important;
-                border: none;
-            }
-            /* Form submit button specifically */
-            button[kind="primaryFormSubmit"] {
-                background-color: #FF6B6B !important;
-                color: #ffffff !important;
-                border: none !important;
-            }
-            button[kind="primaryFormSubmit"]:hover {
-                background-color: #ff5252 !important;
-                color: #ffffff !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-    
-    st.markdown("""
-        <style>
-        .login-container {
-            max-width: 400px;
-            margin: 100px auto;
-            padding: 40px;
-            background-color: #262730;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-        }
-        .logo-container {
-            text-align: center;
-            margin-bottom: 2rem;
-        }
-        .logo-container img {
-            max-width: 200px;
-            height: auto;
-        }
-        .dashboard-title {
-            text-align: center;
-            margin-top: 1rem;
-            margin-bottom: 2rem;
-            font-size: 1.5rem;
-            font-weight: 400;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        # Display theme-aware MIVA logo
-        try:
-            # Select logo based on theme
-            if st.session_state.theme == 'dark':
-                logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
-            else:
-                logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
-            
-            # Try to load and display logo
-            if os.path.exists(logo_path):
-                with open(logo_path, "rb") as f:
-                    logo_b64 = base64.b64encode(f.read()).decode()
-                
-                st.markdown(f"""
-                    <div class="logo-container">
-                        <img src="data:image/png;base64,{logo_b64}" alt="MIVA Logo">
-                    </div>
-                """, unsafe_allow_html=True)
-            else:
-                # Fallback if logo not found
-                st.markdown("# 🧠 MIND Platform")
-        except Exception:
-            # Fallback on any error
-            st.markdown("# 🧠 MIND Platform")
+    Args:
+        role: User role
         
-        # Centered dashboard title
-        st.markdown('<div class="dashboard-title">MIND Analytics Dashboard</div>', unsafe_allow_html=True)
-        st.markdown("---")
+    Returns:
+        Path to the user's home dashboard page
+    """
+    role_page_map = {
+        "admin": "pages/1_👨🏿‍💼_Admin.py",
+        "developer": "pages/2_👨🏿‍💻_Developer.py",
+        "faculty": "pages/3_👩🏿‍🏫_Faculty.py",
+        "student": "pages/4_👨🏿‍🎓_Student.py",
+    }
+    
+    return role_page_map.get(role, "app.py")
+
+
+def get_accessible_pages(role: str) -> list:
+    """
+    Get list of pages accessible to a role
+    
+    Args:
+        role: User role
         
-        with st.form("login_form"):
-            email = st.text_input("Email", placeholder="user@mind.edu")
-            password = st.text_input("Password", type="password", placeholder="Enter password")
-            submit = st.form_submit_button("Login", use_container_width=True)
-            
-            if submit:
-                if login(email, password):
-                    st.success(f"Welcome, {st.session_state.user_name}!")
-                    st.rerun()
-                else:
-                    st.error("Invalid email or password")
+    Returns:
+        List of dictionaries with page info {name, path, icon, accessible}
+    """
+    all_pages = [
+        {"name": "Admin", "path": "pages/1_👨🏿‍💼_Admin.py", "icon": "👨🏿‍💼"},
+        {"name": "Developer", "path": "pages/2_👨🏿‍💻_Developer.py", "icon": "👨🏿‍💻"},
+        {"name": "Faculty", "path": "pages/3_👩🏿‍🏫_Faculty.py", "icon": "👩🏿‍🏫"},
+        {"name": "Student", "path": "pages/4_👨🏿‍🎓_Student.py", "icon": "👨🏿‍🎓"},
+    ]
+    
+    accessible_pages = []
+    for page in all_pages:
+        if can_access_page(role, page["name"]):
+            page["accessible"] = True
+            accessible_pages.append(page)
+    
+    return accessible_pages
 
 
 def show_user_info_sidebar():
-    """Display user info in sidebar"""
+    """Display user info in sidebar with RBAC-aware navigation"""
     if st.session_state.get('authenticated', False):
         with st.sidebar:
             st.markdown("---")
             st.markdown(f"**👤 {st.session_state.user_name}**")
             st.markdown(f"*{st.session_state.user_role.title()}*")
             st.markdown(f"📧 {st.session_state.user_email}")
+            
+            # Show accessible dashboards info
+            role = st.session_state.user_role
+            accessible = get_accessible_pages(role)
+            
+            if len(accessible) > 1:
+                st.markdown("---")
+                st.markdown("**📊 Your Dashboards:**")
+                for page in accessible:
+                    st.markdown(f"{page['icon']} {page['name']}")
+            
+            st.markdown("---")
             
             if st.button("🚪 Logout", use_container_width=True):
                 logout()
