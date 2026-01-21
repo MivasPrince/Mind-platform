@@ -1,5 +1,5 @@
 """
-Admin Dashboard - FIXED FOR BIGQUERY
+Admin Dashboard - WITH RBAC NAVIGATION
 System Health, User Management & Governance Analytics
 """
 
@@ -18,7 +18,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 try:
-    from utils.auth_handler import require_authentication, show_user_info_sidebar, get_current_user
+    from utils.auth_handler import require_authentication, get_current_user
     from config.auth import can_access_page
 except:
     st.error("Import error - please check file structure")
@@ -102,18 +102,15 @@ try:
             .stMarkdown, .stText {
                 color: #262730;
             }
-            /* Chart/Plot containers - white backgrounds */
             div[data-testid="stPlotlyChart"] {
                 background-color: #ffffff !important;
             }
             .js-plotly-plot {
                 background-color: #ffffff !important;
             }
-            /* Metric containers */
             div[data-testid="stMetric"] {
                 background-color: #ffffff;
             }
-            /* Dataframe containers */
             div[data-testid="stDataFrame"] {
                 background-color: #ffffff;
             }
@@ -138,45 +135,36 @@ try:
             section[data-testid="stSidebar"] {
                 background-color: #262730;
             }
-            /* Force white text on all text elements */
             .stMarkdown, .stText, p, span, div, h1, h2, h3, h4, h5, h6, label {
                 color: #fafafa !important;
             }
-            /* Headers specifically */
             .stMarkdown h1, .stMarkdown h2, .stMarkdown h3, 
             .stMarkdown h4, .stMarkdown h5, .stMarkdown h6 {
                 color: #ffffff !important;
             }
-            /* Metric labels and values */
             div[data-testid="stMetric"] label,
             div[data-testid="stMetric"] div {
                 color: #fafafa !important;
             }
-            /* Table text */
             .dataframe, .dataframe td, .dataframe th {
                 color: #fafafa !important;
             }
-            /* Tab labels */
             button[data-baseweb="tab"] {
                 color: #fafafa !important;
             }
-            /* Input labels */
             .stTextInput label, .stSelectbox label, .stMultiSelect label,
             .stSlider label, .stRadio label, .stCheckbox label {
                 color: #fafafa !important;
             }
-            /* Input fields - dark backgrounds with white text */
             input, textarea, select {
                 background-color: #262730 !important;
                 color: #fafafa !important;
                 border: 1px solid #4a4a4a !important;
             }
-            /* Selectbox dropdown */
             div[data-baseweb="select"] > div {
                 background-color: #262730 !important;
                 color: #fafafa !important;
             }
-            /* Selectbox options */
             div[role="listbox"] {
                 background-color: #262730 !important;
             }
@@ -187,62 +175,35 @@ try:
             div[role="option"]:hover {
                 background-color: #3a3a3a !important;
             }
-            /* Date input */
             input[type="date"], input[type="time"] {
                 background-color: #262730 !important;
                 color: #fafafa !important;
             }
-            /* Number input */
             input[type="number"] {
                 background-color: #262730 !important;
                 color: #fafafa !important;
             }
-            /* Text area */
             textarea {
                 background-color: #262730 !important;
                 color: #fafafa !important;
             }
-            /* Expander headers */
             .streamlit-expanderHeader {
                 color: #fafafa !important;
             }
-            /* Input elements and filters */
             .stSelectbox, .stMultiSelect, .stTextInput, .stTextArea,
             .stDateInput, .stTimeInput, .stNumberInput {
                 color: #fafafa !important;
             }
-            /* Select box dropdown */
             .stSelectbox > div > div {
                 background-color: #262730 !important;
                 color: #fafafa !important;
             }
-            /* Input fields */
-            input, textarea, select {
-                background-color: #262730 !important;
-                color: #fafafa !important;
-                border: 1px solid #444 !important;
-            }
-            /* Dropdown options */
-            div[role="listbox"] {
-                background-color: #262730 !important;
-            }
-            div[role="option"] {
-                background-color: #262730 !important;
-                color: #fafafa !important;
-            }
-            div[role="option"]:hover {
-                background-color: #363740 !important;
-                color: #ffffff !important;
-            }
-            /* Slider */
             .stSlider {
                 color: #fafafa !important;
             }
-            /* Radio buttons */
             .stRadio label {
                 color: #fafafa !important;
             }
-            /* Checkbox */
             .stCheckbox label {
                 color: #fafafa !important;
             }
@@ -252,8 +213,42 @@ try:
 except Exception:
     pass
 
-# Sidebar user info
-show_user_info_sidebar()
+# ============================================================================
+# RBAC SIDEBAR NAVIGATION - ADMIN SEES ALL DASHBOARDS
+# ============================================================================
+with st.sidebar:
+    st.markdown("---")
+    
+    # User info
+    st.markdown(f"**👤 {st.session_state.user_name}**")
+    st.markdown(f"*{st.session_state.user_role.title()}*")
+    st.markdown(f"📧 {st.session_state.user_email}")
+    
+    st.markdown("---")
+    
+    # ADMIN: Show all dashboard navigation
+    st.markdown("### 📊 Dashboards")
+    
+    # Create navigation buttons for all dashboards
+    if st.button("👨🏿‍💼 Admin Dashboard", use_container_width=True, type="primary"):
+        st.switch_page("pages/1_👨🏿‍💼_Admin.py")
+    
+    if st.button("👨🏿‍💻 Developer Dashboard", use_container_width=True):
+        st.switch_page("pages/2_👨🏿‍💻_Developer.py")
+    
+    if st.button("👩🏿‍🏫 Faculty Dashboard", use_container_width=True):
+        st.switch_page("pages/3_👩🏿‍🏫_Faculty.py")
+    
+    if st.button("👨🏿‍🎓 Student Dashboard", use_container_width=True):
+        st.switch_page("pages/4_👨🏿‍🎓_Student.py")
+    
+    st.markdown("---")
+    
+    # Logout button
+    if st.button("🚪 Logout", use_container_width=True):
+        from utils.auth_handler import logout
+        logout()
+        st.rerun()
 
 # Database connection
 @st.cache_resource
@@ -308,7 +303,6 @@ def plot_gauge(value, title, max_value=100, height=300):
     if value is None or pd.isna(value):
         value = 0
     
-    # Determine colors based on value
     if value >= 80:
         color = '#2ECC71'
     elif value >= 60:
@@ -316,7 +310,6 @@ def plot_gauge(value, title, max_value=100, height=300):
     else:
         color = '#E74C3C'
     
-    # Theme-aware colors
     is_light = st.session_state.get('theme') == 'light'
     text_color = '#262730' if is_light else '#FAFAFA'
     bg_color = '#F0F0F0' if is_light else '#1E1E1E'
@@ -376,6 +369,7 @@ st.markdown("---")
 
 # Filters in sidebar
 with st.sidebar:
+    st.markdown("---")
     st.markdown("### 📊 Filters")
     
     date_range = st.selectbox(
@@ -413,7 +407,6 @@ with tabs[0]:
     
     col1, col2, col3, col4, col5 = st.columns(5)
     
-    # Get metrics - Using correct table: "user" not "users"
     with col1:
         df = run_query(f"SELECT COUNT(DISTINCT user_id) as count FROM `{DATASET_ID}.user`")
         if df is not None and not df.empty:
@@ -422,7 +415,6 @@ with tabs[0]:
             st.metric("Total Users", "N/A")
     
     with col2:
-        # Note: sessions table might use 'user_email' instead of 'user_id'
         df = run_query(f"""
             SELECT COUNT(DISTINCT user_email) as count 
             FROM `{DATASET_ID}.sessions`
@@ -467,7 +459,6 @@ with tabs[0]:
     
     st.markdown("---")
     
-    # Charts row 1
     col1, col2 = st.columns(2)
     
     with col1:
@@ -510,7 +501,6 @@ with tabs[0]:
         else:
             st.info("No grade data available")
     
-    # Charts row 2 - Case Study Engagement
     st.markdown("---")
     st.markdown("### 🎯 Case Study Engagement: Total Completions")
     df = run_query(f"""
@@ -523,7 +513,6 @@ with tabs[0]:
         ORDER BY completions DESC
     """)
     if df is not None and not df.empty:
-        # Horizontal bar chart with data labels
         fig = go.Figure(go.Bar(
             x=df['completions'],
             y=df['case_study'],
@@ -547,14 +536,13 @@ with tabs[0]:
             paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
             font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
             height=500,
-            yaxis={'categoryorder': 'total ascending'}  # Sort by value
+            yaxis={'categoryorder': 'total ascending'}
         )
         
         st.plotly_chart(fig, use_container_width=True)
     else:
         st.info("No case study data available")
     
-    # Charts row 3 - Session Engagement
     st.markdown("---")
     st.markdown("### 📱 Session Engagement Metrics")
     df = run_query(f"""
@@ -574,7 +562,6 @@ with tabs[0]:
     else:
         st.info("No engagement data available")
     
-    # Charts row 3 - NEW CHARTS FROM NOTEBOOK
     st.markdown("---")
     
     col1, col2 = st.columns(2)
@@ -611,7 +598,6 @@ with tabs[0]:
         if df is not None and not df.empty:
             fig = go.Figure()
             
-            # New Signups line
             fig.add_trace(go.Scatter(
                 x=df['activity_week'],
                 y=df['new_signups'],
@@ -623,7 +609,6 @@ with tabs[0]:
                 fillcolor='rgba(52, 152, 219, 0.1)'
             ))
             
-            # Returning Users line
             fig.add_trace(go.Scatter(
                 x=df['activity_week'],
                 y=df['returning_users'],
@@ -670,7 +655,6 @@ with tabs[0]:
         """)
         
         if df is not None and not df.empty:
-            # Add sequential week numbers
             df['week_num'] = range(1, len(df) + 1)
             
             fig = go.Figure(go.Bar(
@@ -703,7 +687,6 @@ with tabs[0]:
 with tabs[1]:
     st.markdown("## 👥 User Analytics")
     
-    # User stats
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
@@ -810,7 +793,6 @@ with tabs[1]:
     st.markdown("---")
     st.markdown("### 📋 All Student Performance")
     
-    # Search and filters
     col1, col2 = st.columns(2)
     with col1:
         search_name = st.text_input("🔍 Search by Name", "")
@@ -819,10 +801,8 @@ with tabs[1]:
             dept for dept in run_query(f"SELECT DISTINCT department FROM `{DATASET_ID}.user` WHERE department IS NOT NULL ORDER BY department")['department'].tolist()
         ] if run_query(f"SELECT DISTINCT department FROM `{DATASET_ID}.user` WHERE department IS NOT NULL") is not None else ["All"])
     
-    # Build query with filters
     where_clauses = ["g.final_score IS NOT NULL"]
     if search_name:
-        # Note: Using just 'name' without student_email due to schema inconsistencies
         where_clauses.append(f"LOWER(u.name) LIKE '%{search_name.lower()}%'")
     if dept_filter != "All":
         where_clauses.append(f"u.department = '{dept_filter}'")
@@ -860,7 +840,6 @@ with tabs[1]:
 with tabs[2]:
     st.markdown("## 👨🏿‍🎓 Learning Analytics")
     
-    # KPIs
     col1, col2, col3, col4 = st.columns(4)
     
     df = run_query(f"""
@@ -885,7 +864,6 @@ with tabs[2]:
     
     st.markdown("---")
     
-    # NEW CHART: Institutional Performance Score Ranges
     st.markdown("### 📊 Institutional Performance: Effective Score Ranges")
     df = run_query(f"""
         SELECT 
@@ -901,10 +879,8 @@ with tabs[2]:
     """)
     
     if df is not None and not df.empty:
-        # Create grouped bar chart with Min, Avg, Max
         fig = go.Figure()
         
-        # Add bars for each metric
         fig.add_trace(go.Bar(
             name='Min (Non-Zero)',
             x=df['min_score'],
@@ -947,7 +923,7 @@ with tabs[2]:
             plot_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#262730'),
             paper_bgcolor=('#ffffff' if st.session_state.get('theme') == 'light' else '#0E1117'),
             font=dict(color=('#262730' if st.session_state.get('theme') == 'light' else '#FAFAFA')),
-            height=max(400, len(df) * 50),  # Dynamic height based on number of case studies
+            height=max(400, len(df) * 50),
             xaxis=dict(range=[0, 115]),
             yaxis={'categoryorder': 'total ascending'},
             legend=dict(
@@ -1042,7 +1018,6 @@ with tabs[3]:
     
     col1, col2, col3, col4 = st.columns(4)
     
-    # FIXED: Check for None/NaN values properly
     if df is not None and not df.empty and pd.notna(df['total_tokens'].iloc[0]):
         total = float(df['total_tokens'].iloc[0])
         cost = (total / 1_000_000) * 15.0
@@ -1213,4 +1188,4 @@ with tabs[5]:
 
 # Footer
 st.markdown("---")
-st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Admin Dashboard v1.0")
+st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Admin Dashboard v2.0 with RBAC")
