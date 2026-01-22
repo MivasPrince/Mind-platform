@@ -11,18 +11,9 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit.components.v1 as components  # ✅ ADD THIS
 
-# Import auth functions directly
-import sys
-from pathlib import Path
-sys.path.insert(0, str(Path(__file__).parent.parent))
-
-try:
-    from utils.auth_handler import require_authentication, show_user_info_sidebar, get_current_user
-    from config.auth import can_access_page
-except Exception:
-    st.error("Import error - please check file structure")
-    st.stop()
+# ... keep the rest of your imports
 
 # Page config
 st.set_page_config(
@@ -31,21 +22,44 @@ st.set_page_config(
     layout="wide"
 )
 
+# ✅ ADD THIS CONSTANT (your desired target)
+STUDENT_TARGET_URL = "https://mind-platform-pritnim5xwcv3dhztudjsb.streamlit.app/Student"
+
 # Hide default Streamlit page navigation
 st.markdown("""
     <style>
-    [data-testid="stSidebarNav"] {
-        display: none;
-    }
+    [data-testid="stSidebarNav"] { display: none; }
     </style>
 """, unsafe_allow_html=True)
 
 # Authentication
 require_authentication()
 user = get_current_user()
+
+# ✅ ADD THIS REDIRECT BLOCK (right after user is available)
+if user and str(user.get("role", "")).lower() == "student":
+    components.html(
+        f"""
+        <script>
+          (function() {{
+            const target = "{STUDENT_TARGET_URL}";
+            // Redirect only if we're not already on /Student (avoid loops)
+            if (!window.location.href.startsWith(target)) {{
+              window.location.replace(target);
+            }}
+          }})();
+        </script>
+        """,
+        height=0
+    )
+
+# Keep your RBAC check
 if not can_access_page(user['role'], 'Student'):
     st.error("⛔ Access Denied: Student privileges required")
     st.stop()
+
+# ... keep the rest of your code unchanged
+
 
 # Student selection will be done via dropdown in sidebar
 # TODO: When RBAC is fully implemented, uncomment these lines and remove dropdown
