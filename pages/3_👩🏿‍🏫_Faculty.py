@@ -31,6 +31,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# Hide default Streamlit page navigation
+st.markdown("""
+    <style>
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Authentication
 require_authentication()
 user = get_current_user()
@@ -638,6 +647,9 @@ with tabs[1]:
     # Build search filter
     search_where = f"AND LOWER(u.name) LIKE '%{search_student.lower()}%'" if search_student else ""
     
+    # Build department filter
+    dept_where = f"AND u.department = '{selected_dept}'" if selected_dept != 'All' else ""
+    
     df = run_query(f"""
         SELECT 
             u.name as student_name,
@@ -681,6 +693,9 @@ with tabs[1]:
 # TAB 3: CASE STUDY ANALYTICS
 with tabs[2]:
     st.markdown("## 📚 Case Study Analytics")
+    
+    # Build department filter
+    dept_where = f"AND u.department = '{selected_dept}'" if selected_dept != 'All' else ""
     
     # Detailed case study performance
     df = run_query(f"""
@@ -765,6 +780,9 @@ with tabs[3]:
     st.markdown("## ⚠️ At-Risk Students")
     st.markdown(f"**Threshold:** Students with average scores below {risk_threshold}%")
     
+    # Build department filter
+    dept_where = f"AND u.department = '{selected_dept}'" if selected_dept != 'All' else ""
+    
     df = run_query(f"""
         SELECT 
             u.name as student_name,
@@ -801,6 +819,9 @@ with tabs[3]:
 # TAB 5: PROGRESS TRACKING
 with tabs[4]:
     st.markdown("## 📈 Learning Progress Tracking")
+    
+    # Build department filter
+    dept_where = f"AND u.department = '{selected_dept}'" if selected_dept != 'All' else ""
     
     # Weekly progress
     st.markdown("### 📅 Weekly Performance Trends")
@@ -857,6 +878,9 @@ with tabs[4]:
 # TAB 6: INDIVIDUAL STUDENT
 with tabs[5]:
     st.markdown("## 🎯 Individual Student Lookup")
+    
+    # Build department filter
+    dept_where = f"AND u.department = '{selected_dept}'" if selected_dept != 'All' else ""
     
     # Get list of students
     students_df = run_query(f"""
@@ -978,4 +1002,4 @@ with tabs[5]:
 
 # Footer
 st.markdown("---")
-st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Faculty Dashboard v1.0")
+st.caption(f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | Faculty Dashboard v1.1")
