@@ -11,7 +11,6 @@ from google.cloud import bigquery
 from google.oauth2 import service_account
 import plotly.express as px
 import plotly.graph_objects as go
-import streamlit.components.v1 as components  # ✅ ADDED (for redirect)
 
 # Import auth functions directly
 import sys
@@ -32,9 +31,6 @@ st.set_page_config(
     layout="wide"
 )
 
-# ✅ ADDED: Target URL to redirect students after login
-STUDENT_TARGET_URL = "https://mind-platform-pritnim5xwcv3dhztudjsb.streamlit.app/Student"
-
 # Hide default Streamlit page navigation
 st.markdown("""
     <style>
@@ -48,23 +44,7 @@ st.markdown("""
 require_authentication()
 user = get_current_user()
 
-# ✅ ADDED: Redirect student users straight to /Student (avoid loops)
-if user and str(user.get("role", "")).lower() == "student":
-    components.html(
-        f"""
-        <script>
-          (function() {{
-            const target = "{STUDENT_TARGET_URL}";
-            // Redirect only if we're not already on /Student
-            if (!window.location.href.startsWith(target)) {{
-              window.location.replace(target);
-            }}
-          }})();
-        </script>
-        """,
-        height=0
-    )
-
+# Check access permissions
 if not can_access_page(user['role'], 'Student'):
     st.error("⛔ Access Denied: Student privileges required")
     st.stop()
