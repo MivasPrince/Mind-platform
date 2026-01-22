@@ -31,6 +31,15 @@ st.set_page_config(
     layout="wide"
 )
 
+# Hide default Streamlit page navigation
+st.markdown("""
+    <style>
+    [data-testid="stSidebarNav"] {
+        display: none;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
 # Authentication
 require_authentication()
 user = get_current_user()
