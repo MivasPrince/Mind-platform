@@ -1,12 +1,3 @@
-
-
-
-
-
-
-
-
-
 """
 MIND Platform - Educational Analytics Dashboard
 Main Portal & Authentication Page - FIXED FOR CLEAN LOGIN + RBAC
