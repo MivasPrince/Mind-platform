@@ -150,10 +150,17 @@ def get_accessible_pages(role: str) -> list:
 
 
 def show_user_info_sidebar():
-    """Display user info in sidebar with RBAC-aware navigation"""
+    """
+    Display user info in sidebar with RBAC-aware navigation
+    
+    - Admin users: See navigation buttons to ALL dashboards
+    - Non-admin users: See only user info + logout (no navigation links)
+    """
     if st.session_state.get('authenticated', False):
         with st.sidebar:
             st.markdown("---")
+            
+            # User info section
             st.markdown(f"**👤 {st.session_state.user_name}**")
             st.markdown(f"*{st.session_state.user_role.title()}*")
             st.markdown(f"📧 {st.session_state.user_email}")
@@ -162,6 +169,7 @@ def show_user_info_sidebar():
             role = st.session_state.user_role
             
             if role == "admin":
+                # Admin gets navigation to all dashboards
                 accessible = get_accessible_pages(role)
                 st.markdown("---")
                 st.markdown("**📊 Dashboards:**")
@@ -169,8 +177,12 @@ def show_user_info_sidebar():
                     if st.button(f"{page['icon']} {page['name']}", key=f"nav_{page['name']}", use_container_width=True):
                         st.switch_page(page['path'])
             
+            # Non-admin users: No navigation links shown
+            # They are already in their designated dashboard
+            
             st.markdown("---")
             
+            # Logout button for all users
             if st.button("🚪 Logout", use_container_width=True):
                 logout()
                 st.rerun()
