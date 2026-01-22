@@ -158,15 +158,16 @@ def show_user_info_sidebar():
             st.markdown(f"*{st.session_state.user_role.title()}*")
             st.markdown(f"📧 {st.session_state.user_email}")
             
-            # Show accessible dashboards info
+            # Only show navigation for admin users
             role = st.session_state.user_role
-            accessible = get_accessible_pages(role)
             
-            if len(accessible) > 1:
+            if role == "admin":
+                accessible = get_accessible_pages(role)
                 st.markdown("---")
-                st.markdown("**📊 Your Dashboards:**")
+                st.markdown("**📊 Dashboards:**")
                 for page in accessible:
-                    st.markdown(f"{page['icon']} {page['name']}")
+                    if st.button(f"{page['icon']} {page['name']}", key=f"nav_{page['name']}", use_container_width=True):
+                        st.switch_page(page['path'])
             
             st.markdown("---")
             
