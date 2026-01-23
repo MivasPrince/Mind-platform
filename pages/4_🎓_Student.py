@@ -27,7 +27,7 @@ except Exception:
 # Page config
 st.set_page_config(
     page_title="Student Dashboard | MIND Platform",
-    page_icon="👨🏿‍🎓",
+    page_icon="🎓",
     layout="wide"
 )
 
@@ -404,7 +404,7 @@ def plot_gauge(value, title, max_value=100, height=300):
 
 
 # Header
-st.title("👨🏿‍🎓 My Learning Journey")
+st.title("🎓 My Learning Journey")
 
 # Student Selector (for demo/admin purposes - will be replaced with RBAC)
 with st.sidebar:
@@ -447,7 +447,7 @@ with st.sidebar:
         student_name = selected_student['name']
 
         # Show selected student info
-        st.info(f"👤🏿 **{student_name}**  \n📊 {selected_student['department']}")
+        st.info(f"👤 **{student_name}**  \n📊 {selected_student['department']}")
     else:
         st.error("No student data found in database")
         student_user_id = None
@@ -1102,5 +1102,5 @@ with tabs[5]:
 st.markdown("---")
 st.caption(
     f"Last updated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} | "
-    f"Keep learning! 👨🏿‍🎓 | Student Dashboard v1.1"
+    f"Keep learning! 🎓 | Student Dashboard v1.1"
 )
