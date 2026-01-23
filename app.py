@@ -8,6 +8,7 @@ from utils.auth_handler import initialize_session_state, login, logout
 from config.auth import can_access_page
 import base64
 import os
+import re
 
 # Page configuration
 st.set_page_config(
@@ -23,18 +24,41 @@ if 'theme' not in st.session_state:
 
 initialize_session_state()
 
-# Helper function defined locally (no import needed)
+# ============================================================
+# HELPER FUNCTION - Get home page for role
+# ============================================================
+# NOTE: Student page renamed from 4_👨🏿‍🎓_Student.py to 4_🎓_Student.py
+# The complex emoji (man+dark skin+ZWJ+graduation cap) caused encoding issues
 def get_user_home_page(role: str) -> str:
     """Get the home page for a role"""
     role_page_map = {
         "admin": "pages/1_👨🏿‍💼_Admin.py",
         "developer": "pages/2_👨🏿‍💻_Developer.py",
         "faculty": "pages/3_👩🏿‍🏫_Faculty.py",
-        "student": "pages/4_👨🏿‍🎓_Student.py",
+        "student": "pages/4_🎓_Student.py",  # FIXED: Simpler emoji
     }
-    return role_page_map.get(role, "app.py")
+    return role_page_map.get(role.lower() if role else 'student', "pages/4_🎓_Student.py")
 
-# Global CSS
+
+# ============================================================
+# AUTHENTICATED USER REDIRECT - MUST BE AT TOP
+# ============================================================
+# This check runs on every execution BEFORE any forms.
+# If user is already authenticated (from st.rerun() after login), redirect them.
+# This avoids the "cannot switch_page during form submission" error.
+if st.session_state.get('authenticated', False):
+    home_page = get_user_home_page(st.session_state.get('user_role', 'student'))
+    try:
+        st.switch_page(home_page)
+    except Exception as e:
+        st.error(f"⚠️ Navigation error: {e}")
+        st.info("Please use the sidebar to navigate to your dashboard.")
+    st.stop()
+
+
+# ============================================================
+# GLOBAL CSS
+# ============================================================
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -125,157 +149,97 @@ else:
         </style>
     """, unsafe_allow_html=True)
 
-# Check authentication status
-is_authenticated = st.session_state.get('authenticated', False)
 
-# CONDITIONAL SIDEBAR - Only show when authenticated
-if is_authenticated:
-    with st.sidebar:
-        col1, col2 = st.columns([3, 1])
-        with col2:
-            if st.session_state.theme == 'dark':
-                if st.button("☀️", help="Switch to light mode", key="theme_toggle"):
-                    st.session_state.theme = 'light'
-                    st.rerun()
-            else:
-                if st.button("🌙", help="Switch to dark mode", key="theme_toggle"):
-                    st.session_state.theme = 'dark'
-                    st.rerun()
-        
-        try:
-            if st.session_state.theme == 'dark':
-                logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
-            else:
-                logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
-            
-            if os.path.exists(logo_path):
-                with open(logo_path, "rb") as f:
-                    logo_b64 = base64.b64encode(f.read()).decode()
-                
-                st.markdown(f"""
-                    <div style="margin-bottom: 1rem;">
-                        <img src="data:image/png;base64,{logo_b64}" width="180" alt="MIVA Logo">
-                    </div>
-                """, unsafe_allow_html=True)
-        except:
-            st.markdown("# 🧠 MIND")
-        
-        st.markdown("---")
-        
-        st.markdown(f"**👤 {st.session_state.user_name}**")
-        st.markdown(f"*{st.session_state.user_role.title()}*")
-        st.markdown(f"📧 {st.session_state.user_email}")
-        
-        st.markdown("---")
-        
-        if st.button("🚪 Logout", use_container_width=True):
-            logout()
+# ============================================================
+# LOGIN PAGE (Only shown when NOT authenticated)
+# ============================================================
+
+# HIDE SIDEBAR ON LOGIN PAGE
+st.markdown("""
+    <style>
+    section[data-testid="stSidebar"] {
+        display: none;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# Theme toggle in top right corner (small, unobtrusive)
+col_spacer, col_theme = st.columns([10, 1])
+with col_theme:
+    if st.session_state.theme == 'dark':
+        if st.button("☀️", help="Switch to light mode", key="login_theme_toggle"):
+            st.session_state.theme = 'light'
             st.rerun()
-else:
-    # HIDE SIDEBAR ON LOGIN PAGE
-    st.markdown("""
-        <style>
-        section[data-testid="stSidebar"] {
-            display: none;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    else:
+        if st.button("🌙", help="Switch to dark mode", key="login_theme_toggle"):
+            st.session_state.theme = 'dark'
+            st.rerun()
 
-# Main Content
-if not is_authenticated:
-    # ============================================================
-    # CLEAN LOGIN PAGE - NO SIDEBAR, JUST LOGIN FORM
-    # ============================================================
-    
-    # Theme toggle in top right corner (small, unobtrusive)
-    col_spacer, col_theme = st.columns([10, 1])
-    with col_theme:
+# Centered login form
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col2:
+    # Logo
+    try:
         if st.session_state.theme == 'dark':
-            if st.button("☀️", help="Switch to light mode", key="login_theme_toggle"):
-                st.session_state.theme = 'light'
-                st.rerun()
+            logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
         else:
-            if st.button("🌙", help="Switch to dark mode", key="login_theme_toggle"):
-                st.session_state.theme = 'dark'
-                st.rerun()
-    
-    # Centered login form
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col2:
-        # Logo
-        try:
-            if st.session_state.theme == 'dark':
-                logo_path = "/mount/src/mind-platform/assets/miva_logo_light.png"
-            else:
-                logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
+            logo_path = "/mount/src/mind-platform/assets/miva_logo_dark.png"
+        
+        if os.path.exists(logo_path):
+            with open(logo_path, "rb") as f:
+                logo_b64 = base64.b64encode(f.read()).decode()
             
-            if os.path.exists(logo_path):
-                with open(logo_path, "rb") as f:
-                    logo_b64 = base64.b64encode(f.read()).decode()
-                
-                st.markdown(f"""
-                    <div style="text-align: center; margin-bottom: 2rem;">
-                        <img src="data:image/png;base64,{logo_b64}" width="200" alt="MIVA Logo">
-                    </div>
-                """, unsafe_allow_html=True)
-        except:
-            pass
-        
-        st.markdown("""
-            <div style="text-align: center; margin-bottom: 2rem;">
-                <h1 style="margin-bottom: 0.5rem;">MIND Analytics Dashboard</h1>
-                <p style="font-size: 1.2rem; opacity: 0.8;">AI-Enhanced Educational Analytics</p>
-            </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown("### 🔐 Login to Continue")
-        st.markdown("---")
-        
-        with st.form("login_form"):
-            email = st.text_input("Email", placeholder="user@mind.edu", key="login_email")
-            password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
-            submit = st.form_submit_button("Login", use_container_width=True)
-            
-            if submit:
-                # Email format validation
-                import re
-                email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-                
-                if not email:
-                    st.error("❌ Please enter your email address")
-                elif not re.match(email_pattern, email):
-                    st.error("❌ Invalid email format. Please enter a valid email address (e.g., user@miva.edu)")
-                elif not password:
-                    st.error("❌ Please enter your password")
-                elif login(email, password):
-                    st.success(f"✅ Welcome, {st.session_state.user_name}!")
-                    
-                    # RBAC: Redirect to user's home dashboard
-                    home_page = get_user_home_page(st.session_state.user_role)
-                    st.switch_page(home_page)
-                else:
-                    st.error("❌ Incorrect email or password. Please try again.")
+            st.markdown(f"""
+                <div style="text-align: center; margin-bottom: 2rem;">
+                    <img src="data:image/png;base64,{logo_b64}" width="200" alt="MIVA Logo">
+                </div>
+            """, unsafe_allow_html=True)
+    except:
+        pass
     
-    st.markdown("---")
     st.markdown("""
-        <div style='text-align: center; color: #888; padding: 20px;'>
-            <p><strong>MIND Platform v2.0</strong></p>
-            <p>Powered by BigQuery, Streamlit & Plotly</p>
-            <p style="font-size: 0.9rem; margin-top: 1rem;">
-                MIVA Open University | Educational Analytics Dashboard
-            </p>
+        <div style="text-align: center; margin-bottom: 2rem;">
+            <h1 style="margin-bottom: 0.5rem;">MIND Analytics Dashboard</h1>
+            <p style="font-size: 1.2rem; opacity: 0.8;">AI-Enhanced Educational Analytics</p>
         </div>
     """, unsafe_allow_html=True)
+    
+    st.markdown("### 🔐 Login to Continue")
+    st.markdown("---")
+    
+    with st.form("login_form"):
+        email = st.text_input("Email", placeholder="user@mind.edu", key="login_email")
+        password = st.text_input("Password", type="password", placeholder="Enter password", key="login_password")
+        submit = st.form_submit_button("Login", use_container_width=True)
+        
+        if submit:
+            # Email format validation
+            email_pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+            
+            if not email:
+                st.error("❌ Please enter your email address")
+            elif not re.match(email_pattern, email):
+                st.error("❌ Invalid email format. Please enter a valid email address (e.g., user@miva.edu)")
+            elif not password:
+                st.error("❌ Please enter your password")
+            elif login(email, password):
+                st.success(f"✅ Welcome, {st.session_state.user_name}!")
+                
+                # CRITICAL FIX: Use st.rerun() instead of st.switch_page()
+                # This triggers a fresh execution where the redirect at the TOP
+                # of the script will handle navigation (outside of form context)
+                st.rerun()
+            else:
+                st.error("❌ Incorrect email or password. Please try again.")
 
-else:
-    # ============================================================
-    # AUTHENTICATED - REDIRECT TO USER'S HOME DASHBOARD
-    # ============================================================
-    # This page should not normally be shown after login
-    # User should be auto-redirected to their dashboard
-    
-    st.info("🔄 Redirecting to your dashboard...")
-    
-    home_page = get_user_home_page(st.session_state.user_role)
-    st.switch_page(home_page)
+st.markdown("---")
+st.markdown("""
+    <div style='text-align: center; color: #888; padding: 20px;'>
+        <p><strong>MIND Platform v2.0</strong></p>
+        <p>Powered by BigQuery, Streamlit & Plotly</p>
+        <p style="font-size: 0.9rem; margin-top: 1rem;">
+            MIVA Open University | Educational Analytics Dashboard
+        </p>
+    </div>
+""", unsafe_allow_html=True)
